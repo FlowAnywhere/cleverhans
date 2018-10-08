@@ -23,7 +23,8 @@ from cleverhans.model import Model
 from cleverhans.utils_mnist import data_mnist
 from cleverhans.utils import to_categorical
 from cleverhans.utils import set_log_level
-from cleverhans.utils_tf import train, model_eval, batch_eval
+from cleverhans.utils_tf import train, model_eval
+from cleverhans.evaluation import batch_eval
 from cleverhans.attacks import FastGradientMethod
 from cleverhans.attacks_tf import jacobian_graph, jacobian_augmentation
 
@@ -180,7 +181,7 @@ def train_sub(sess, x, y, bbox_preds, x_sub, y_sub, nb_classes,
             x_sub_prev = x_sub[int(len(x_sub)/2):]
             eval_params = {'batch_size': batch_size}
             bbox_val = batch_eval(sess, [x], [bbox_preds], [x_sub_prev],
-                                  args=eval_params)[0]
+                                  batch_size=batch_size)[0]
             # Note here that we take the argmax because the adversary
             # only has access to the label (not the probabilities) output
             # by the black-box model

@@ -25,6 +25,7 @@ from cleverhans_tutorials.tutorial_models import ModelBasicCNN
 
 FLAGS = flags.FLAGS
 
+NB_FILTERS=64
 NB_EPOCHS = 6
 BATCH_SIZE = 128
 LEARNING_RATE = 0.001
@@ -145,6 +146,8 @@ def mnist_tutorial(train_start=0, train_end=60000, test_start=0,
             do_eval(preds_adv, x_train, y_train, 'train_clean_train_adv_eval')
 
         print('Repeating the process, using adversarial training')
+
+    print("after clean train>>>>>>>>>>>>>>>>>>>>>")
 
     # Create a new model and train it to be robust to FastGradientMethod
     model2 = ModelBasicCNN('model2', nb_classes, nb_filters)

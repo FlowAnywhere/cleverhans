@@ -4,6 +4,7 @@
 from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
+from builtins import int # long in python 2
 
 from io import StringIO
 import pickle
@@ -14,7 +15,6 @@ import numpy as np
 
 from six import iteritems
 from six import itervalues
-from six import PY3
 from six import text_type
 
 
@@ -40,10 +40,7 @@ MAX_WORK_RECORDS_READ = 1000
 
 def get_integer_time():
   """Returns current time in long integer format."""
-  if PY3:
-    return int(time.time())
-  else:
-    return long(time.time())
+  return int(time.time())
 
 
 def is_unclaimed(work):
@@ -51,8 +48,8 @@ def is_unclaimed(work):
   if work['is_completed']:
     return False
   cutoff_time = time.time() - MAX_PROCESSING_TIME
-  if (work['claimed_worker_id']
-      and work['claimed_worker_start_time'] is not None
+  if (work['claimed_worker_id'] and
+      work['claimed_worker_start_time'] is not None
       and work['claimed_worker_start_time'] >= cutoff_time):
     return False
   return True
@@ -259,7 +256,7 @@ class WorkPiecesBase(object):
         work_entity['claimed_worker_id'] = worker_id
         work_entity['claimed_worker_start_time'] = get_integer_time()
         transaction.put(work_entity)
-    except:
+    except Exception:
       return None
     return next_work_id
 
@@ -292,7 +289,7 @@ class WorkPiecesBase(object):
         if error:
           work_entity['error'] = text_type(error)
         transaction.put(work_entity)
-    except:
+    except Exception:
       return False
     return True
 

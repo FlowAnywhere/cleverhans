@@ -24,21 +24,23 @@ directory. That's why it's highly recommended to run worker only in VM.
 from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
+from builtins import int # long in python 2
 
 import argparse
 import json
 import logging
 import os
 import random
-import re
 import shutil
 import subprocess
 import time
 import uuid
 
+from six import iteritems
+
 import eval_lib
 
-from six import iteritems
+from cleverhans.utils import shell_call
 
 
 # Sleep time while waiting for next available piece of work
@@ -89,44 +91,6 @@ METADATA_JSON_TYPE_TO_TYPE = {
     'targeted_attack': TYPE_TARGETED,
     'defense': TYPE_DEFENSE,
 }
-
-# Regular experssion to find instances of '${NAME}' in a string
-CMD_VARIABLE_RE = re.compile('^\\$\\{(\\w+)\\}$')
-
-
-def shell_call(command, **kwargs):
-  """Calls shell command with argument substitution.
-
-  Args:
-    command: command represented as a list. Each element of the list is one
-      token of the comman. For example "cp a b" becomes ['cp', 'a', 'b']
-      If any element of the list looks like '${NAME}' then it will be replaced
-      by value from **kwargs with key 'NAME'.
-    **kwargs: dictionary with argument substitution
-
-  Returns:
-    output of the command
-
-  Raises:
-    subprocess.CalledProcessError if command return value is not zero
-
-  This function is useful when you need to do variable substitution prior
-  running the command. Below are few examples of how it works:
-
-    shell_call(['cp', 'a', 'b'], a='asd') calls command 'cp a b'
-
-    shell_call(['cp', '${a}', 'b'], a='asd') calls command 'cp asd b',
-    '${a}; was replaced with 'asd' before calling the command
-  """
-  command = list(command)
-  for i in range(len(command)):
-    m = CMD_VARIABLE_RE.match(command[i])
-    if m:
-      var_id = m.group(1)
-      if var_id in kwargs:
-        command[i] = kwargs[var_id]
-  logging.debug('Executing shell command: %s', ' '.join(command))
-  return subprocess.check_output(command)
 
 
 def make_directory_writable(dirname):
@@ -246,7 +210,7 @@ class ExecutableSubmission(object):
 
   def download(self):
     """Method which downloads submission to local directory."""
-    ## Structure of the download directory:
+    # Structure of the download directory:
     # submission_dir=LOCAL_SUBMISSIONS_DIR/submission_id
     # submission_dir/s.ext   <-- archived submission
     # submission_dir/extracted      <-- extracted submission
@@ -293,7 +257,8 @@ class ExecutableSubmission(object):
         raise WorkerError('Can''t copy submission locally', e)
       # extract archive
       try:
-        shell_call(extract_command_tmpl, src=download_path, dst=tmp_extract_dir)
+        shell_call(extract_command_tmpl,
+                   src=download_path, dst=tmp_extract_dir)
       except subprocess.CalledProcessError as e:
         # proceed even if extraction returned non zero error code,
         # sometimes it's just warning
@@ -376,7 +341,7 @@ class ExecutableSubmission(object):
     logging.info('Docker command: %s', ' '.join(cmd))
     start_time = time.time()
     retval = subprocess.call(cmd)
-    elapsed_time_sec = long(time.time() - start_time)
+    elapsed_time_sec = int(time.time() - start_time)
     logging.info('Elapsed time of attack: %d', elapsed_time_sec)
     logging.info('Docker retval: %d', retval)
     if retval != 0:
@@ -409,7 +374,7 @@ class ExecutableSubmission(object):
     start_time = time.time()
     elapsed_time_sec = 0
     while is_docker_still_running(container_name):
-      elapsed_time_sec = long(time.time() - start_time)
+      elapsed_time_sec = int(time.time() - start_time)
       if elapsed_time_sec < time_limit:
         time.sleep(1)
       else:
@@ -589,6 +554,7 @@ class EvaluationWorker(object):
     self.dataset_meta = None
 
   def read_dataset_metadata(self):
+    """Read `dataset_meta` field from bucket"""
     if self.dataset_meta:
       return
     shell_call(['gsutil', 'cp',
@@ -691,10 +657,11 @@ class EvaluationWorker(object):
       # populate values which will be written to datastore
       image_path = '{0}/adversarial_images/{1}/{1}.zip/{2}.png'.format(
           self.round_name, adv_batch_id, adv_img_id)
+      # u'' + foo is a a python 2/3 compatible way of casting foo to unicode
       adv_batch['images'][adv_img_id] = {
-          'clean_image_id': unicode(clean_image_id),
-          'image_path': unicode(image_path),
-          'image_hash': unicode(hash_val),
+          'clean_image_id': u'' + str(clean_image_id),
+          'image_path': u'' + str(image_path),
+          'image_hash': u'' + str(hash_val),
       }
     # archive all images and copy to storage
     zipped_images_filename = os.path.join(LOCAL_ZIPPED_OUTPUT_DIR,
@@ -710,7 +677,8 @@ class EvaluationWorker(object):
     # upload archive to storage
     dst_filename = '{0}/adversarial_images/{1}/{1}.zip'.format(
         self.round_name, adv_batch_id)
-    logging.debug('Copying archive with adversarial images to %s', dst_filename)
+    logging.debug(
+        'Copying archive with adversarial images to %s', dst_filename)
     self.storage_client.new_blob(dst_filename).upload_from_filename(
         zipped_images_filename)
     # writing adv batch to datastore
@@ -922,6 +890,7 @@ class EvaluationWorker(object):
     logging.info('******** Finished evaluation of defenses ********')
 
   def run_work(self):
+    """Run attacks and defenses"""
     if os.path.exists(LOCAL_EVAL_ROOT_DIR):
       sudo_remove_dirtree(LOCAL_EVAL_ROOT_DIR)
     self.run_attacks()
@@ -940,7 +909,8 @@ def main(args):
                + '#' * len(title) + '\n'
                + '##' + ' ' * (len(title)-2) + '##' + '\n')
   if args.blacklisted_submissions:
-    logging.warning('BLACKLISTED SUBMISSIONS: %s', args.blacklisted_submissions)
+    logging.warning('BLACKLISTED SUBMISSIONS: %s',
+                    args.blacklisted_submissions)
   random.seed()
   logging.info('Running nvidia-docker to ensure that GPU works')
   shell_call(['docker', 'run', '--runtime=nvidia',

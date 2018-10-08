@@ -22,12 +22,12 @@ import pickle
 import random
 import time
 
-import eval_lib
-
 from six import iteritems
 from six import iterkeys
 from six import itervalues
 from six.moves import input as input_str
+
+import eval_lib
 
 
 # List of allowed sizes of adversarial perturbation
@@ -256,7 +256,10 @@ class EvaluationMaster(object):
       writer = csv.writer(f)
       writer.writerow(['SubmissionID', 'ExternalTeamId', 'Score',
                        'MedianTime', 'ImageCount'])
-      get_second = lambda x: x[1]
+
+      def get_second(x):
+        """Returns second entry of a list/tuple"""
+        return x[1]
       for s_id, score in sorted(iteritems(scores),
                                 key=get_second, reverse=True):
         external_id = self.submissions.get_external_id(s_id)
@@ -685,7 +688,8 @@ USAGE = """Use one of the following commands to run master:
 def main(args):
   """Main function which runs master."""
   if args.blacklisted_submissions:
-    logging.warning('BLACKLISTED SUBMISSIONS: %s', args.blacklisted_submissions)
+    logging.warning('BLACKLISTED SUBMISSIONS: %s',
+                    args.blacklisted_submissions)
   if args.limited_dataset:
     logging.info('Using limited dataset: 3 batches * 10 images')
     max_dataset_num_images = 30

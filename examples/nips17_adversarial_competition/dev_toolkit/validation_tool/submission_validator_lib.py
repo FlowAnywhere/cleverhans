@@ -3,6 +3,7 @@
 from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
+from builtins import int # long in python 2
 
 import csv
 import json
@@ -12,10 +13,9 @@ import re
 import subprocess
 
 import numpy as np
+from six import iteritems
 from PIL import Image
 
-from six import iteritems
-from six import PY3
 
 
 EXTRACT_COMMAND = {
@@ -36,9 +36,9 @@ IMAGE_NAME_PATTERN = 'IMG{0:04}.png'
 
 ALLOWED_EPS = [4, 8, 12, 16]
 
-MAX_SUBMISSION_SIZE_ZIPPED = 8*1024*1024*1024      #  8 GiB
+MAX_SUBMISSION_SIZE_ZIPPED = 8*1024*1024*1024  # 8 GiB
 MAX_SUBMISSION_SIZE_UNPACKED = 16*1024*1024*1024   # 16 GiB
-MAX_DOCKER_IMAGE_SIZE = 8*1024*1024*1024           #  8 GiB
+MAX_DOCKER_IMAGE_SIZE = 8*1024*1024*1024  # 8 GiB
 
 
 def get_extract_command_template(filename):
@@ -257,7 +257,7 @@ class SubmissionValidator(object):
     try:
       image_size = subprocess.check_output(
           ['docker', 'inspect', '--format={{.Size}}', image_name]).strip()
-      image_size = int(image_size) if PY3 else long(image_size)
+      image_size = int(image_size)
     except (ValueError, subprocess.CalledProcessError) as e:
       logging.error('Failed to determine docker image size: %s', e)
       return False

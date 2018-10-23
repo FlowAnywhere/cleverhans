@@ -16,14 +16,14 @@ from cleverhans.picklable_model import Softmax
 
 
 class ModelBasicCNN(Model):
-  def __init__(self, scope, nb_classes, nb_filters, **kwargs):
+  def __init__(self, scope, nb_classes, nb_filters, input_shape, **kwargs):
     del kwargs
     Model.__init__(self, scope, nb_classes, locals())
     self.nb_filters = nb_filters
 
     # Do a dummy run of fprop to make sure the variables are created from
     # the start
-    self.fprop(tf.placeholder(tf.float32, [128, 28, 28, 1]))
+    self.fprop(tf.placeholder(tf.float32, input_shape))
     # Put a reference to the params in self so that the params get pickled
     self.params = self.get_params()
 

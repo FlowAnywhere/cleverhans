@@ -28,29 +28,24 @@ BATCH_SIZE = 128
 NB_EPOCHS = 6
 SOURCE_SAMPLES = 10
 LEARNING_RATE = .001
-ZOO_LEARNING_RATE = .2
+ZOO_LEARNING_RATE = .01
 ATTACK_ITERATIONS = 3000  # 1000
-INIT_CONST = 10
+INIT_CONST = 100
 BINARY_SEARCH_STEPS = 2
-MODEL_PATH = os.path.join('models', 'mnist')
 TARGETED = True
 SOLVER = 'adam'
+DATASET = 'SVHN'
+MODEL_PATH = os.path.join(os.path.join('models', DATASET.lower()), DATASET.lower())
 
 
-def mnist_zoo(train_start=0, train_end=60000, test_start=0,
-              test_end=10000, viz_enabled=VIZ_ENABLED,
-              nb_epochs=NB_EPOCHS, batch_size=BATCH_SIZE,
-              source_samples=SOURCE_SAMPLES,
-              learning_rate=LEARNING_RATE,
-              attack_iterations=ATTACK_ITERATIONS,
-              model_path=MODEL_PATH,
-              targeted=TARGETED):
+def zoo(viz_enabled=VIZ_ENABLED,
+        nb_epochs=NB_EPOCHS, batch_size=BATCH_SIZE,
+        source_samples=SOURCE_SAMPLES,
+        learning_rate=LEARNING_RATE,
+        attack_iterations=ATTACK_ITERATIONS,
+        model_path=MODEL_PATH,
+        targeted=TARGETED):
     """
-    MNIST tutorial for Carlini and Wagner's attack
-    :param train_start: index of first training set example
-    :param train_end: index of last training set example
-    :param test_start: index of first test set example
-    :param test_end: index of last test set example
     :param viz_enabled: (boolean) activate plots of adversarial examples
     :param nb_epochs: number of epochs to train model
     :param batch_size: size of training batches
@@ -73,10 +68,28 @@ def mnist_zoo(train_start=0, train_end=60000, test_start=0,
 
     set_log_level(logging.DEBUG)
 
-    # Get MNIST test data
-    mnist = dataset.MNIST(train_start=train_start, train_end=train_end, test_start=test_start, test_end=test_end,
-                          center=False)
-    x_train, y_train, x_test, y_test = mnist.get_set('train') + mnist.get_set('test')
+    if DATASET == 'MNIST':
+        train_start = 0
+        train_end = 60000
+        test_start = 0
+        test_end = 10000
+        ds = dataset.MNIST(train_start=train_start, train_end=train_end, test_start=test_start, test_end=test_end,
+                           center=False)
+    elif DATASET == 'SVHN':
+        train_start = 0
+        train_end = 73257
+        test_start = 0
+        test_end = 26032
+        ds = dataset.SVHN(train_start=train_start, train_end=train_end, test_start=test_start, test_end=test_end)
+    elif DATASET == 'CIFAR10':
+        train_start = 0
+        train_end = 60000
+        test_start = 0
+        test_end = 10000
+        ds = dataset.CIFAR10(train_start=train_start, train_end=train_end, test_start=test_start, test_end=test_end,
+                             center=False)
+
+    x_train, y_train, x_test, y_test = ds.get_set('train') + ds.get_set('test')
 
     # Obtain Image Parameters
     img_rows, img_cols, nchannels = x_train.shape[1:4]
@@ -88,7 +101,7 @@ def mnist_zoo(train_start=0, train_end=60000, test_start=0,
     nb_filters = 64
 
     # Define TF model graph
-    model = ModelBasicCNN('model1', nb_classes, nb_filters)
+    model = ModelBasicCNN(DATASET, nb_classes, nb_filters, (None, img_rows, img_cols, nchannels))
     preds = model.get_logits(x)
     loss = CrossEntropy(model, smoothing=0.1)
     print("Defined TensorFlow model graph.")
@@ -217,14 +230,14 @@ def mnist_zoo(train_start=0, train_end=60000, test_start=0,
 
 
 def main(argv=None):
-    mnist_zoo(viz_enabled=FLAGS.viz_enabled,
-              nb_epochs=FLAGS.nb_epochs,
-              batch_size=FLAGS.batch_size,
-              source_samples=FLAGS.source_samples,
-              learning_rate=FLAGS.learning_rate,
-              attack_iterations=FLAGS.attack_iterations,
-              model_path=FLAGS.model_path,
-              targeted=FLAGS.targeted)
+    zoo(viz_enabled=FLAGS.viz_enabled,
+        nb_epochs=FLAGS.nb_epochs,
+        batch_size=FLAGS.batch_size,
+        source_samples=FLAGS.source_samples,
+        learning_rate=FLAGS.learning_rate,
+        attack_iterations=FLAGS.attack_iterations,
+        model_path=FLAGS.model_path,
+        targeted=FLAGS.targeted)
 
 
 if __name__ == '__main__':
@@ -237,5 +250,6 @@ if __name__ == '__main__':
     flags.DEFINE_integer('attack_iterations', ATTACK_ITERATIONS, 'Number of iterations to run attack; 1000 is good')
     flags.DEFINE_boolean('targeted', TARGETED, 'Run the tutorial in targeted mode?')
     flags.DEFINE_string('solver', SOLVER, 'Adam or Newton?')
+    flags.DEFINE_string('dataset', DATASET, 'MNIST or SVHN or CIFAR10?')
 
     tf.app.run()

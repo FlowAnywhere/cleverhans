@@ -1094,7 +1094,7 @@ class Zoo(Attack):
         self.structural_kwargs = [
             'batch_size', 'confidence', 'targeted', 'learning_rate',
             'binary_search_steps', 'max_iterations', 'abort_early',
-            'initial_const'
+            'initial_const', 'solver', 'image_shape', 'nb_classes'
         ]
 
     def generate(self, x, **kwargs):

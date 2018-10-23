@@ -4,20 +4,19 @@ from __future__ import print_function
 from __future__ import unicode_literals
 
 import copy
-import numpy as np
-from six.moves import xrange
-import tensorflow as tf
 import warnings
-import time
 
-from . import utils_tf
-from . import utils
-from cleverhans.compat import reduce_max, reduce_min
-from cleverhans.compat import reduce_mean, reduce_sum
+import numpy as np
+import tensorflow as tf
+import time
+from six.moves import xrange
+
 from cleverhans.compat import reduce_any
+from cleverhans.compat import reduce_max
+from cleverhans.compat import reduce_mean, reduce_sum
 from . import loss as loss_module
-from numba import jit
-import scipy.misc
+from . import utils
+from . import utils_tf
 
 _logger = utils.create_logger("cleverhans.attacks.tf")
 
@@ -552,19 +551,19 @@ def jsma_symbolic(x, y_target, model, theta, gamma, clip_min, clip_max):
         # Subtract 2 times the maximum value from those value so that
         # they won't be picked later
         increase_coef = (4 * int(increase) - 2) \
-            * tf.cast(tf.equal(domain_in, 0), tf_dtype)
+                        * tf.cast(tf.equal(domain_in, 0), tf_dtype)
 
         target_tmp = grads_target
         target_tmp -= increase_coef \
-            * reduce_max(tf.abs(grads_target), axis=1, keepdims=True)
+                      * reduce_max(tf.abs(grads_target), axis=1, keepdims=True)
         target_sum = tf.reshape(target_tmp, shape=[-1, nb_features, 1]) \
-            + tf.reshape(target_tmp, shape=[-1, 1, nb_features])
+                     + tf.reshape(target_tmp, shape=[-1, 1, nb_features])
 
         other_tmp = grads_other
         other_tmp += increase_coef \
-            * reduce_max(tf.abs(grads_other), axis=1, keepdims=True)
+                     * reduce_max(tf.abs(grads_other), axis=1, keepdims=True)
         other_sum = tf.reshape(other_tmp, shape=[-1, nb_features, 1]) \
-            + tf.reshape(other_tmp, shape=[-1, 1, nb_features])
+                    + tf.reshape(other_tmp, shape=[-1, 1, nb_features])
 
         # Create a mask to only keep features that match conditions
         if increase:
@@ -574,7 +573,7 @@ def jsma_symbolic(x, y_target, model, theta, gamma, clip_min, clip_max):
 
         # Create a 2D numpy array of scores for each pair of candidate features
         scores = tf.cast(scores_mask, tf_dtype) \
-            * (-target_sum * other_sum) * zero_diagonal
+                 * (-target_sum * other_sum) * zero_diagonal
 
         # Extract the best two pixels
         best = tf.argmax(
@@ -672,7 +671,7 @@ def jacobian_augmentation(sess,
                 range(p_idxs, p_idxs + X_batch.shape[0]),
                 range(X_batch.shape[0])):
             X_sub[num_samples + indx] = (
-                X_batch[ind] + lmbda * grad_val[Y_sub[indx], ind, ...])
+                    X_batch[ind] + lmbda * grad_val[Y_sub[indx], ind, ...])
 
     # Return augmented training data (needs to be labeled afterwards)
     return X_sub
@@ -768,7 +767,7 @@ class CarliniWagnerL2(object):
 
         # distance to the input data
         self.other = (tf.tanh(self.timg) + 1) / \
-            2 * (clip_max - clip_min) + clip_min
+                     2 * (clip_max - clip_min) + clip_min
         self.l2dist = reduce_sum(
             tf.square(self.newimg - self.other), list(range(1, len(shape))))
 
@@ -896,12 +895,12 @@ class CarliniWagnerL2(object):
                 if iteration % ((self.MAX_ITERATIONS // 10) or 1) == 0:
                     _logger.debug(("    Iteration {} of {}: loss={:.3g} " +
                                    "l2={:.3g} f={:.3g}").format(
-                                       iteration, self.MAX_ITERATIONS, l,
-                                       np.mean(l2s), np.mean(scores)))
+                        iteration, self.MAX_ITERATIONS, l,
+                        np.mean(l2s), np.mean(scores)))
 
                 # check if we should abort search if we're getting nowhere.
                 if self.ABORT_EARLY and \
-                   iteration % ((self.MAX_ITERATIONS // 10) or 1) == 0:
+                        iteration % ((self.MAX_ITERATIONS // 10) or 1) == 0:
                     if l > prev * .9999:
                         msg = "    Failed to make progress; stop early"
                         _logger.debug(msg)
@@ -922,7 +921,7 @@ class CarliniWagnerL2(object):
             # adjust the constant as needed
             for e in range(batch_size):
                 if compare(bestscore[e], np.argmax(batchlab[e])) and \
-                   bestscore[e] != -1:
+                        bestscore[e] != -1:
                     # success, divide const by two
                     upper_bound[e] = min(upper_bound[e], CONST[e])
                     if upper_bound[e] < 1e9:
@@ -947,48 +946,10 @@ class CarliniWagnerL2(object):
         return o_bestattack
 
 
-@jit(nopython=True)
-def coordinate_ADAM(losses, indice, grad, hess, batch_size, mt_arr, vt_arr, real_modifier, up, down, lr, adam_epoch, beta1, beta2, proj):
-    # indice = np.array(range(0, 3*299*299), dtype = np.int32)
-    for i in range(batch_size):
-        grad[i] = (losses[i*2+1] - losses[i*2+2]) / 0.0002
-    # true_grads = self.sess.run(self.grad_op, feed_dict={self.modifier: self.real_modifier})
-    # true_grads, losses, l2s, scores, nimgs = self.sess.run([self.grad_op, self.loss, self.l2dist, self.output, self.newimg], feed_dict={self.modifier: self.real_modifier})
-    # grad = true_grads[0].reshape(-1)[indice]
-    # print(grad, true_grads[0].reshape(-1)[indice])
-    # self.real_modifier.reshape(-1)[indice] -= self.LEARNING_RATE * grad
-    # self.real_modifier -= self.LEARNING_RATE * true_grads[0]
-    # ADAM update
-    mt = mt_arr[indice]
-    mt = beta1 * mt + (1 - beta1) * grad
-    mt_arr[indice] = mt
-    vt = vt_arr[indice]
-    vt = beta2 * vt + (1 - beta2) * (grad * grad)
-    vt_arr[indice] = vt
-    # epoch is an array; for each index we can have a different epoch number
-    epoch = adam_epoch[indice]
-    corr = (np.sqrt(1 - np.power(beta2,epoch))) / (1 - np.power(beta1, epoch))
-    m = real_modifier.reshape(-1)
-    old_val = m[indice]
-    old_val -= lr * corr * mt / (np.sqrt(vt) + 1e-8)
-    # set it back to [-0.5, +0.5] region
-    if proj:
-        old_val = np.maximum(np.minimum(old_val, up[indice]), down[indice])
-    # print(grad)
-    # print(old_val - m[indice])
-    m[indice] = old_val
-    adam_epoch[indice] = epoch + 1
-
 class Zoo:
-    def __init__(self, sess, model, batch_size, confidence,
-                 targeted, learning_rate,
-                 binary_search_steps, max_iterations,
-                 abort_early,
-                 initial_const,
-                 use_log=True, use_tanh=False, use_resize=False, adam_beta1=0.9, adam_beta2=0.999,
-                 reset_adam_after_found=False,
-                 solver="adam", save_ckpts="", load_checkpoint="", start_iter=0,
-                 init_size=32, use_importance=True):
+    def __init__(self, sess, model, batch_size,
+                 targeted, learning_rate, binary_search_steps, max_iterations, abort_early, initial_const,
+                 solver, image_shape, nb_classes, use_log=True, adam_beta1=0.9, adam_beta2=0.999):
         """
         The L_2 optimized attack.
 
@@ -1014,79 +975,58 @@ class Zoo:
           the initial constant is not important.
         """
 
-        image_size, num_channels, num_labels = 28, 1, 10
+        self.image_size, self.num_labels = image_shape[0], nb_classes
         self.model = model
         self.sess = sess
         self.TARGETED = targeted
         self.LEARNING_RATE = learning_rate
         self.MAX_ITERATIONS = max_iterations
         self.print_every = 100
-        self.early_stop_iters = max_iterations // 10
-        print("early stop:", self.early_stop_iters)
-        self.BINARY_SEARCH_STEPS = binary_search_steps
         self.ABORT_EARLY = abort_early
-        self.CONFIDENCE = confidence
+        self.early_stop_iters = max_iterations // 10
+        if self.ABORT_EARLY:
+            _logger.info("early stop: %s", str(self.early_stop_iters))
+        self.BINARY_SEARCH_STEPS = binary_search_steps
         self.initial_const = initial_const
-        self.start_iter = start_iter
         self.batch_size = batch_size
-        self.num_channels = num_channels
-        self.resize_init_size = init_size
-        self.use_importance = use_importance
-
-        self.use_resize = False
-        self.small_x = image_size
-        self.small_y = image_size
-
-        self.use_tanh = use_tanh
-
+        self.num_channels = image_shape[2]
 
         self.repeat = binary_search_steps >= 10
 
         # each batch has a different modifier value (see below) to evaluate
-        # small_shape = (None,self.small_x,self.small_y,num_channels)
-        shape = (None, image_size, image_size, num_channels)
-        single_shape = (image_size, image_size, num_channels)
-        small_single_shape = (self.small_x, self.small_y, num_channels)
+        shape = (None, self.image_size, self.image_size, self.num_channels)
+        single_shape = (self.image_size, self.image_size, self.num_channels)
 
         # the variable we're going to optimize over
         # support multiple batches
 
-        self.modifier = tf.placeholder(tf.float32, shape=(None, image_size, image_size, num_channels))
-        # no resize
-        self.scaled_modifier = self.modifier
+        self.modifier = tf.placeholder(tf.float32, shape=shape)
+
         # the real variable, initialized to 0
-        self.load_checkpoint = load_checkpoint
-        self.real_modifier = np.zeros((1,) + small_single_shape, dtype=np.float32)
+        self.real_modifier = np.zeros((1,) + single_shape, dtype=np.float32)
         # self.real_modifier = np.random.randn(image_size * image_size * num_channels).astype(np.float32).reshape((1,) + single_shape)
         # self.real_modifier /= np.linalg.norm(self.real_modifier)
         # these are variables to be more efficient in sending data to tf
         # we only work on 1 image at once; the batch is for evaluation loss at different modifiers
         self.timg = tf.Variable(np.zeros(single_shape), dtype=tf.float32)
-        self.tlab = tf.Variable(np.zeros(num_labels), dtype=tf.float32)
+        self.tlab = tf.Variable(np.zeros(self.num_labels), dtype=tf.float32)
         self.const = tf.Variable(0.0, dtype=tf.float32)
 
         # and here's what we use to assign them
         self.assign_timg = tf.placeholder(tf.float32, single_shape)
-        self.assign_tlab = tf.placeholder(tf.float32, num_labels)
+        self.assign_tlab = tf.placeholder(tf.float32, self.num_labels)
         self.assign_const = tf.placeholder(tf.float32)
 
-        # the resulting image, tanh'd to keep bounded from -0.5 to 0.5
-        # broadcast self.timg to every dimension of modifier
-        if use_tanh:
-            self.newimg = tf.tanh(self.scaled_modifier + self.timg) / 2
-        else:
-            self.newimg = self.scaled_modifier + self.timg
+        # the resulting image
+        self.newimg = self.modifier + self.timg
 
-        # prediction BEFORE-SOFTMAX of the model
+        # prediction
         # now we have output at #batch_size different modifiers
         # the output should have shape (batch_size, num_labels)
         self.output = model.get_probs(self.newimg)
 
         # distance to the input data
-        if use_tanh:
-            self.l2dist = tf.reduce_sum(tf.square(self.newimg - tf.tanh(self.timg) / 2), [1, 2, 3])
-        else:
-            self.l2dist = tf.reduce_sum(tf.square(self.newimg - self.timg), [1, 2, 3])
+        self.l2dist = tf.reduce_sum(tf.square(self.newimg - self.timg), [1, 2, 3])
 
         # compute the probability of the label class versus the maximum other
         # self.tlab * self.output selects the Z value of real class
@@ -1102,18 +1042,16 @@ class Zoo:
         # If self.targeted is false, then targets are the original class labels.
         if self.TARGETED:
             if use_log:
-                # loss1 = - tf.log(self.real)
                 loss1 = tf.maximum(0.0, tf.log(self.other + 1e-30) - tf.log(self.real + 1e-30))
             else:
                 # if targetted, optimize for making the other class (real) most likely
-                loss1 = tf.maximum(0.0, self.other - self.real + self.CONFIDENCE)
+                loss1 = tf.maximum(0.0, self.other - self.real)
         else:
             if use_log:
-                # loss1 = tf.log(self.real)
                 loss1 = tf.maximum(0.0, tf.log(self.real + 1e-30) - tf.log(self.other + 1e-30))
             else:
                 # if untargeted, optimize for making this class least likely.
-                loss1 = tf.maximum(0.0, self.real - self.other + self.CONFIDENCE)
+                loss1 = tf.maximum(0.0, self.real - self.other)
 
         # sum up the losses (output is a vector of #batch_size)
         self.loss2 = self.l2dist
@@ -1127,154 +1065,98 @@ class Zoo:
         self.setup.append(self.const.assign(self.assign_const))
 
         # prepare the list of all valid variables
-        var_size = self.small_x * self.small_y * num_channels
-        self.use_var_len = var_size
+        self.use_var_len = self.image_size * self.image_size * self.num_channels
         self.var_list = np.array(range(0, self.use_var_len), dtype=np.int32)
-        self.used_var_list = np.zeros(var_size, dtype=np.int32)
-        self.sample_prob = np.ones(var_size, dtype=np.float32) / var_size
+        self.used_var_list = np.zeros(self.use_var_len, dtype=np.int32)
+        self.sample_prob = np.ones(self.use_var_len, dtype=np.float32) / self.use_var_len
 
         # upper and lower bounds for the modifier
-        self.modifier_up = np.zeros(var_size, dtype=np.float32)
-        self.modifier_down = np.zeros(var_size, dtype=np.float32)
+        self.modifier_up = np.ones(self.use_var_len, dtype=np.float32)
+        self.modifier_down = np.zeros(self.use_var_len, dtype=np.float32)
 
         # random permutation for coordinate update
-        self.perm = np.random.permutation(var_size)
+        self.perm = np.random.permutation(self.use_var_len)
         self.perm_index = 0
 
         # ADAM status
-        self.mt = np.zeros(var_size, dtype=np.float32)
-        self.vt = np.zeros(var_size, dtype=np.float32)
-        # self.beta1 = 0.8
-        # self.beta2 = 0.99
+        self.mt = np.zeros(self.use_var_len, dtype=np.float32)
+        self.vt = np.zeros(self.use_var_len, dtype=np.float32)
         self.beta1 = adam_beta1
         self.beta2 = adam_beta2
-        self.reset_adam_after_found = reset_adam_after_found
-        self.adam_epoch = np.ones(var_size, dtype=np.int32)
+        self.adam_epoch = np.ones(self.use_var_len, dtype=np.int32)
         self.stage = 0
         # variables used during optimization process
         self.grad = np.zeros(batch_size, dtype=np.float32)
         self.hess = np.zeros(batch_size, dtype=np.float32)
         # for testing
         self.grad_op = tf.gradients(self.loss, self.modifier)
-        # compile numba function
-        # self.coordinate_ADAM_numba = jit(coordinate_ADAM, nopython = True)
-        # self.coordinate_ADAM_numba.recompile()
-        # print(self.coordinate_ADAM_numba.inspect_llvm())
-        # np.set_printoptions(threshold=np.nan)
         # set solver
         solver = solver.lower()
-        self.solver_name = 'adam'
-        self.solver = coordinate_ADAM
-        print("Using", solver, "solver")
+        self.solver_name = solver.lower()
+        self.solver = self.coordinate_ADAM if self.solver_name == 'adam' else self.coordinate_Newton
+        _logger.info("Using solver: %s", solver)
 
+    def coordinate_ADAM(self, losses, indice, grad, hess, batch_size, mt_arr, vt_arr, real_modifier, up, down, lr,
+                        adam_epoch,
+                        beta1, beta2):
+        for i in range(batch_size):
+            grad[i] = (losses[i * 2 + 1] - losses[i * 2 + 2]) / 0.0002
 
+        mt = mt_arr[indice]
+        mt = beta1 * mt + (1 - beta1) * grad
+        mt_arr[indice] = mt
+        vt = vt_arr[indice]
+        vt = beta2 * vt + (1 - beta2) * (grad * grad)
+        vt_arr[indice] = vt
+        # epoch is an array; for each index we can have a different epoch number
+        epoch = adam_epoch[indice]
+        corr = (np.sqrt(1 - np.power(beta2, epoch))) / (1 - np.power(beta1, epoch))
+        m = real_modifier.reshape(-1)
+        old_val = m[indice]
+        old_val -= lr * corr * mt / (np.sqrt(vt) + 1e-8)
+        # set it back to [0, 1] region
+        old_val = np.maximum(np.minimum(old_val, up[indice]), down[indice])
 
-    def max_pooling(self, image, size):
-        img_pool = np.copy(image)
-        img_x = image.shape[0]
-        img_y = image.shape[1]
-        for i in range(0, img_x, size):
-            for j in range(0, img_y, size):
-                img_pool[i:i + size, j:j + size] = np.max(image[i:i + size, j:j + size])
-        return img_pool
+        m[indice] = old_val
+        adam_epoch[indice] = epoch + 1
 
-    def get_new_prob(self, prev_modifier, gen_double=False):
-        prev_modifier = np.squeeze(prev_modifier)
-        old_shape = prev_modifier.shape
-        if gen_double:
-            new_shape = (old_shape[0] * 2, old_shape[1] * 2, old_shape[2])
-        else:
-            new_shape = old_shape
-        prob = np.empty(shape=new_shape, dtype=np.float32)
-        for i in range(prev_modifier.shape[2]):
-            image = np.abs(prev_modifier[:, :, i])
-            image_pool = self.max_pooling(image, old_shape[0] // 8)
-            if gen_double:
-                prob[:, :, i] = scipy.misc.imresize(image_pool, 2.0, 'nearest', mode='F')
-            else:
-                prob[:, :, i] = image_pool
-        prob /= np.sum(prob)
-        return prob
+    def coordinate_Newton(self, losses, indice, grad, hess, batch_size, mt_arr, vt_arr, real_modifier, up, down, lr,
+                          adam_epoch, beta1, beta2):
+        cur_loss = losses[0]
+        for i in range(batch_size):
+            grad[i] = (losses[i * 2 + 1] - losses[i * 2 + 2]) / 0.0002
+            hess[i] = (losses[i * 2 + 1] - 2 * cur_loss + losses[i * 2 + 2]) / (0.0001 * 0.0001)
 
-    def resize_img(self, small_x, small_y, reset_only=False):
-        self.small_x = small_x
-        self.small_y = small_y
-        small_single_shape = (self.small_x, self.small_y, self.num_channels)
-        if reset_only:
-            self.real_modifier = np.zeros((1,) + small_single_shape, dtype=np.float32)
-        else:
-            # run the resize_op once to get the scaled image
-            prev_modifier = np.copy(self.real_modifier)
-            self.real_modifier = self.sess.run(self.resize_op, feed_dict={self.resize_size_x: self.small_x,
-                                                                          self.resize_size_y: self.small_y,
-                                                                          self.resize_input: self.real_modifier})
-        # prepare the list of all valid variables
-        var_size = self.small_x * self.small_y * self.num_channels
-        self.use_var_len = var_size
-        self.var_list = np.array(range(0, self.use_var_len), dtype=np.int32)
-        # ADAM status
-        self.mt = np.zeros(var_size, dtype=np.float32)
-        self.vt = np.zeros(var_size, dtype=np.float32)
-        self.adam_epoch = np.ones(var_size, dtype=np.int32)
-        # update sample probability
-        if reset_only:
-            self.sample_prob = np.ones(var_size, dtype=np.float32) / var_size
-        else:
-            self.sample_prob = self.get_new_prob(prev_modifier, True)
-            self.sample_prob = self.sample_prob.reshape(var_size)
+        # negative hessian cannot provide second order information, just do a gradient descent
+        hess[hess < 0] = 1.0
+        # hessian too small, could be numerical problems
+        hess[hess < 0.1] = 0.1
+
+        m = real_modifier.reshape(-1)
+        old_val = m[indice]
+        old_val -= lr * grad / hess
+        # set it back to [0, 1] region
+        old_val = np.maximum(np.minimum(old_val, up[indice]), down[indice])
+
+        m[indice] = old_val
 
     def blackbox_optimizer(self, iteration):
         # build new inputs, based on current variable value
         var = np.repeat(self.real_modifier, self.batch_size * 2 + 1, axis=0)
         var_size = self.real_modifier.size
-        # print(s, "variables remaining")
-        # var_indice = np.random.randint(0, self.var_list.size, size=self.batch_size)
-        if self.use_importance:
-            var_indice = np.random.choice(self.var_list.size, self.batch_size, replace=False, p=self.sample_prob)
-        else:
-            var_indice = np.random.choice(self.var_list.size, self.batch_size, replace=False)
+        var_indice = np.random.choice(self.var_list.size, self.batch_size, replace=False)
         indice = self.var_list[var_indice]
-        # indice = self.var_list
-        # regenerate the permutations if we run out
-        # if self.perm_index + self.batch_size >= var_size:
-        #     self.perm = np.random.permutation(var_size)
-        #     self.perm_index = 0
-        # indice = self.perm[self.perm_index:self.perm_index + self.batch_size]
-        # b[0] has the original modifier, b[1] has one index added 0.0001
+
         for i in range(self.batch_size):
             var[i * 2 + 1].reshape(-1)[indice[i]] += 0.0001
             var[i * 2 + 2].reshape(-1)[indice[i]] -= 0.0001
         losses, l2s, loss1, loss2, scores, nimgs = self.sess.run(
             [self.loss, self.l2dist, self.loss1, self.loss2, self.output, self.newimg], feed_dict={self.modifier: var})
-        # losses = self.sess.run(self.loss, feed_dict={self.modifier: var})
-        # t_grad = self.sess.run(self.grad_op, feed_dict={self.modifier: self.real_modifier})
-        # self.grad = t_grad[0].reshape(-1)
-        # true_grads = self.sess.run(self.grad_op, feed_dict={self.modifier: self.real_modifier})
-        # self.coordinate_ADAM_numba(losses, indice, self.grad, self.hess, self.batch_size, self.mt, self.vt, self.real_modifier, self.modifier_up, self.modifier_down, self.LEARNING_RATE, self.adam_epoch, self.beta1, self.beta2, not self.use_tanh)
-        # coordinate_ADAM(losses, indice, self.grad, self.hess, self.batch_size, self.mt, self.vt, self.real_modifier, self.modifier_up, self.modifier_down, self.LEARNING_RATE, self.adam_epoch, self.beta1, self.beta2, not self.use_tanh)
-        # coordinate_ADAM(losses, indice, self.grad, self.hess, self.batch_size, self.mt, self.vt, self.real_modifier, self.modifier_up, self.modifier_down, self.LEARNING_RATE, self.adam_epoch, self.beta1, self.beta2, not self.use_tanh, true_grads)
-        # coordinate_Newton(losses, indice, self.grad, self.hess, self.batch_size, self.mt, self.vt, self.real_modifier, self.modifier_up, self.modifier_down, self.LEARNING_RATE, self.adam_epoch, self.beta1, self.beta2, not self.use_tanh)
-        # coordinate_Newton_ADAM(losses, indice, self.grad, self.hess, self.batch_size, self.mt, self.vt, self.real_modifier, self.modifier_up, self.modifier_down, self.LEARNING_RATE, self.adam_epoch, self.beta1, self.beta2, not self.use_tanh)
+
         self.solver(losses, indice, self.grad, self.hess, self.batch_size, self.mt, self.vt, self.real_modifier,
-                    self.modifier_up, self.modifier_down, self.LEARNING_RATE, self.adam_epoch, self.beta1, self.beta2,
-                    not self.use_tanh)
-        # adjust sample probability, sample around the points with large gradient
+                    self.modifier_up, self.modifier_down, self.LEARNING_RATE, self.adam_epoch, self.beta1, self.beta2)
 
-
-        if self.real_modifier.shape[0] > self.resize_init_size:
-            self.sample_prob = self.get_new_prob(self.real_modifier)
-            # self.sample_prob = self.get_new_prob(tmp_mt.reshape(self.real_modifier.shape))
-            self.sample_prob = self.sample_prob.reshape(var_size)
-
-        # if the gradient is too small, do not optimize on this variable
-        # self.var_list = np.delete(self.var_list, indice[np.abs(self.grad) < 5e-3])
-        # reset the list every 10000 iterations
-        # if iteration%200 == 0:
-        #    print("{} variables remained at last stage".format(self.var_list.size))
-        #    var_size = self.real_modifier.size
-        #    self.var_list = np.array(range(0, var_size))
         return losses[0], l2s[0], loss1[0], loss2[0], scores[0], nimgs[0]
-        # return losses[0]
 
     def attack(self, imgs, targets):
         """
@@ -1284,10 +1166,9 @@ class Zoo:
         If self.targeted is false, then targets are the original class labels.
         """
         r = []
-        print('go up to', len(imgs))
         # we can only run 1 image at a time, minibatches are used for gradient evaluation
         for i in range(0, len(imgs)):
-            print('tick', i)
+            _logger.info('================== generating adavasarial example %s', str(i))
             r.append(self.attack_batch(imgs[i], targets[i]))
         return np.array(r)
 
@@ -1300,10 +1181,6 @@ class Zoo:
         def compare(x, y):
             if not isinstance(x, (float, int, np.int64)):
                 x = np.copy(x)
-                if self.TARGETED:
-                    x[y] -= self.CONFIDENCE
-                else:
-                    x[y] += self.CONFIDENCE
                 x = np.argmax(x)
             if self.TARGETED:
                 return x == y
@@ -1315,38 +1192,18 @@ class Zoo:
             img = img[0]
         if len(lab.shape) == 2:
             lab = lab[0]
-        # convert to tanh-space
-        if self.use_tanh:
-            img = np.arctanh(img * 1.999999)
 
         # set the lower and upper bounds accordingly
         lower_bound = 0.0
         CONST = self.initial_const
         upper_bound = 1e10
 
-        # convert img to float32 to avoid numba error
-        img = img.astype(np.float32)
-
-        # set the upper and lower bounds for the modifier
-        if not self.use_tanh:
-            self.modifier_up = 0.5 - img.reshape(-1)
-            self.modifier_down = -0.5 - img.reshape(-1)
-
-        # clear the modifier
-        if not self.load_checkpoint:
-            if self.use_resize:
-                self.resize_img(self.resize_init_size, self.resize_init_size, True)
-            else:
-                self.real_modifier.fill(0.0)
-
         # the best l2, score, and image attack
-        o_best_const = CONST
         o_bestl2 = 1e10
-        o_bestscore = -1
         o_bestattack = img
 
         for outer_step in range(self.BINARY_SEARCH_STEPS):
-            print(o_bestl2)
+            _logger.info('********* round %i', outer_step)
 
             bestl2 = 1e10
             bestscore = -1
@@ -1367,66 +1224,41 @@ class Zoo:
             prev = 1e6
             train_timer = 0.0
             last_loss1 = 1.0
-            if not self.load_checkpoint:
-                if self.use_resize:
-                    self.resize_img(self.resize_init_size, self.resize_init_size, True)
-                else:
-                    self.real_modifier.fill(0.0)
+            self.real_modifier.fill(0.0)
             # reset ADAM status
             self.mt.fill(0.0)
             self.vt.fill(0.0)
             self.adam_epoch.fill(1)
-            self.stage = 0
-            multiplier = 1
-            eval_costs = 0
-            if self.solver_name != "fake_zero":
-                multiplier = 24
-            for iteration in range(self.start_iter, self.MAX_ITERATIONS):
-                if self.use_resize:
-                    if iteration == 2000:
-                        # if iteration == 2000 // 24:
-                        self.resize_img(64, 64)
-                    if iteration == 10000:
-                        # if iteration == 2000 // 24 + (10000 - 2000) // 96:
-                        self.resize_img(128, 128)
-                    # if iteration == 200*30:
-                    # if iteration == 250 * multiplier:
-                    #     self.resize_img(256,256)
-                # print out the losses every 10%
+
+            for iteration in range(self.MAX_ITERATIONS):
+                # print out the losses
                 if iteration % (self.print_every) == 0:
-                    # print(iteration,self.sess.run((self.loss,self.real,self.other,self.loss1,self.loss2), feed_dict={self.modifier: self.real_modifier}))
                     loss, real, other, loss1, loss2 = self.sess.run(
                         (self.loss, self.real, self.other, self.loss1, self.loss2),
                         feed_dict={self.modifier: self.real_modifier})
-                    print(
-                        "[STATS][L2] iter = {}, cost = {}, time = {:.3f}, size = {}, loss = {:.5g}, real = {:.5g}, other = {:.5g}, loss1 = {:.5g}, loss2 = {:.5g}".format(
-                            iteration, eval_costs, train_timer, self.real_modifier.shape, loss[0], real[0], other[0],
+                    _logger.info(
+                        "iter = {}, time = {:.3f}, size = {}, loss = {:.5g}, real = {:.5g}, other = {:.5g}, loss1 = {:.5g}, loss2 = {:.5g}".format(
+                            iteration, train_timer, self.real_modifier.shape, loss[0], real[0], other[0],
                             loss1[0], loss2[0]))
-                    # np.save('black_iter_{}'.format(iteration), self.real_modifier)
 
                 attack_begin_time = time.time()
                 # perform the attack
                 l, l2, loss1, loss2, score, nimg = self.blackbox_optimizer(iteration)
-                # l = self.blackbox_optimizer(iteration)
-
-                eval_costs += self.batch_size
 
                 # reset ADAM states when a valid example has been found
-                if loss1 == 0.0 and last_loss1 != 0.0 and self.stage == 0:
+                if loss1 == 0.0 and last_loss1 != 0.0:
                     # we have reached the fine tunning point
                     # reset ADAM to avoid overshoot
-                    if self.reset_adam_after_found:
-                        self.mt.fill(0.0)
-                        self.vt.fill(0.0)
-                        self.adam_epoch.fill(1)
-                    self.stage = 1
+                    self.mt.fill(0.0)
+                    self.vt.fill(0.0)
+                    self.adam_epoch.fill(1)
+
                 last_loss1 = loss1
 
                 # check if we should abort search if we're getting nowhere.
-                # if self.ABORT_EARLY and iteration%(self.MAX_ITERATIONS//10) == 0:
                 if self.ABORT_EARLY and iteration % self.early_stop_iters == 0:
-                    if l > prev * .9999:
-                        print("Early stopping because there is no improvement")
+                    if l >= prev * .9999:
+                        _logger.warn("Early stopping because there is no improvement")
                         break
                     prev = l
 
@@ -1437,40 +1269,37 @@ class Zoo:
                     bestl2 = l2
                     bestscore = np.argmax(score)
                 if l2 < o_bestl2 and compare(score, np.argmax(lab)):
-                    # print a message if it is the first attack found
-                    if o_bestl2 == 1e10:
-                        print(
-                            "[STATS][L3](First valid attack found!) iter = {}, cost = {}, time = {:.3f}, size = {}, loss = {:.5g}, loss1 = {:.5g}, loss2 = {:.5g}, l2 = {:.5g}".format(
-                                iteration, eval_costs, train_timer, self.real_modifier.shape, l, loss1, loss2, l2))
+                    _logger.info(
+                        "[Valid (better) attack found!] iter = {}, time = {:.3f}, size = {}, loss = {:.5g}, loss1 = {:.5g}, loss2 = {:.5g}, l2 = {:.5g}".format(
+                            iteration, train_timer, self.real_modifier.shape, l, loss1, loss2, l2))
 
                     o_bestl2 = l2
-                    o_bestscore = np.argmax(score)
                     o_bestattack = nimg
-                    o_best_const = CONST
 
                 train_timer += time.time() - attack_begin_time
 
             # adjust the constant as needed
             if compare(bestscore, np.argmax(lab)) and bestscore != -1:
                 # success, divide const by two
-                print('old constant: ', CONST)
+                _logger.info('old constant: %s', str(CONST))
                 upper_bound = min(upper_bound, CONST)
                 if upper_bound < 1e9:
                     CONST = (lower_bound + upper_bound) / 2
-                print('new constant: ', CONST)
+                _logger.info('new constant: %s', str(CONST))
             else:
                 # failure, either multiply by 10 if no solution found yet
                 #          or do binary search with the known upper bound
-                print('old constant: ', CONST)
+                _logger.info('old constant: %s', str(CONST))
                 lower_bound = max(lower_bound, CONST)
                 if upper_bound < 1e9:
                     CONST = (lower_bound + upper_bound) / 2
                 else:
                     CONST *= 10
-                print('new constant: ', CONST)
+                _logger.info('new constant: %s', str(CONST))
 
         # return the best solution found
-        return o_bestattack #, o_best_const
+        return o_bestattack
+
 
 class ElasticNetMethod(object):
     def __init__(self, sess, model, beta, decision_rule, batch_size,
@@ -1611,13 +1440,13 @@ class ElasticNetMethod(object):
         self.output_y = model.get_logits(self.slack)
 
         # distance to the input data
-        self.l2dist = reduce_sum(tf.square(self.newimg-self.timg),
+        self.l2dist = reduce_sum(tf.square(self.newimg - self.timg),
                                  list(range(1, len(shape))))
-        self.l2dist_y = reduce_sum(tf.square(self.slack-self.timg),
+        self.l2dist_y = reduce_sum(tf.square(self.slack - self.timg),
                                    list(range(1, len(shape))))
-        self.l1dist = reduce_sum(tf.abs(self.newimg-self.timg),
+        self.l1dist = reduce_sum(tf.abs(self.newimg - self.timg),
                                  list(range(1, len(shape))))
-        self.l1dist_y = reduce_sum(tf.abs(self.slack-self.timg),
+        self.l1dist_y = reduce_sum(tf.abs(self.slack - self.timg),
                                    list(range(1, len(shape))))
         self.elasticdist = self.l2dist + tf.multiply(self.l1dist,
                                                      self.beta_t)
@@ -1655,7 +1484,7 @@ class ElasticNetMethod(object):
         self.loss1 = reduce_sum(self.const * loss1)
         self.loss1_y = reduce_sum(self.const * loss1_y)
         self.loss_opt = self.loss1_y + self.loss2_y
-        self.loss = self.loss1+self.loss2+tf.multiply(self.beta_t, self.loss21)
+        self.loss = self.loss1 + self.loss2 + tf.multiply(self.beta_t, self.loss21)
 
         self.learning_rate = tf.train.polynomial_decay(
             self.LEARNING_RATE,
@@ -1679,7 +1508,7 @@ class ElasticNetMethod(object):
         self.setup.append(self.tlab.assign(self.assign_tlab))
         self.setup.append(self.const.assign(self.assign_const))
 
-        var_list = [self.global_step]+[self.slack]+[self.newimg]+new_vars
+        var_list = [self.global_step] + [self.slack] + [self.newimg] + new_vars
         self.init = tf.variables_initializer(var_list=var_list)
 
     def attack(self, imgs, targets):
@@ -1705,8 +1534,8 @@ class ElasticNetMethod(object):
             _logger.debug(
                 ("Running EAD attack on instance " + "{} of {}").format(
                     last_elements, len(imgs)))
-            temp_imgs = np.zeros((batch_size, ) + imgs.shape[2:])
-            temp_targets = np.zeros((batch_size, ) + targets.shape[2:])
+            temp_imgs = np.zeros((batch_size,) + imgs.shape[2:])
+            temp_targets = np.zeros((batch_size,) + targets.shape[2:])
             temp_imgs[:(len(imgs) % batch_size)] = imgs[last_elements:]
             temp_targets[:(len(imgs) % batch_size)] = targets[last_elements:]
             temp_data = self.attack_batch(temp_imgs, temp_targets)
@@ -1784,13 +1613,13 @@ class ElasticNetMethod(object):
                 if iteration % ((self.MAX_ITERATIONS // 10) or 1) == 0:
                     _logger.debug(("    Iteration {} of {}: loss={:.3g} " +
                                    "l2={:.3g} l1={:.3g} f={:.3g}").format(
-                                       iteration, self.MAX_ITERATIONS, l,
-                                       np.mean(l2s), np.mean(l1s),
-                                       np.mean(scores)))
+                        iteration, self.MAX_ITERATIONS, l,
+                        np.mean(l2s), np.mean(l1s),
+                        np.mean(scores)))
 
                 # check if we should abort search if we're getting nowhere.
                 if self.ABORT_EARLY and \
-                   iteration % ((self.MAX_ITERATIONS // 10) or 1) == 0:
+                        iteration % ((self.MAX_ITERATIONS // 10) or 1) == 0:
                     if l > prev * .9999:
                         msg = "    Failed to make progress; stop early"
                         _logger.debug(msg)
@@ -1811,7 +1640,7 @@ class ElasticNetMethod(object):
             # adjust the constant as needed
             for e in range(batch_size):
                 if compare(bestscore[e], np.argmax(batchlab[e])) and \
-                   bestscore[e] != -1:
+                        bestscore[e] != -1:
                     # success, divide const by two
                     upper_bound[e] = min(upper_bound[e], CONST[e])
                     if upper_bound[e] < 1e9:
@@ -2094,7 +1923,7 @@ class LBFGS_attack(object):
 
             adv_x = adv_x.reshape(oimgs.shape)
             assert np.amax(adv_x) <= self.clip_max and \
-                np.amin(adv_x) >= self.clip_min, \
+                   np.amin(adv_x) >= self.clip_min, \
                 'fmin_l_bfgs_b returns are invalid'
 
             # adjust the best result (i.e., the adversarial example with the
@@ -2245,13 +2074,13 @@ class UnrolledAdam(UnrolledOptimizer):
             m_old = optim_state["m"][i]
             u_old = optim_state["u"][i]
             new_optim_state["m"][i] = (
-                self._beta1 * m_old + (1. - self._beta1) * g)
+                    self._beta1 * m_old + (1. - self._beta1) * g)
             new_optim_state["u"][i] = (
-                self._beta2 * u_old + (1. - self._beta2) * g * g)
+                    self._beta2 * u_old + (1. - self._beta2) * g * g)
             m_hat = new_optim_state["m"][i] / (1. - tf.pow(self._beta1, t))
             u_hat = new_optim_state["u"][i] / (1. - tf.pow(self._beta2, t))
             new_x[i] = (
-                x[i] - self._lr * m_hat / (tf.sqrt(u_hat) + self._epsilon))
+                    x[i] - self._lr * m_hat / (tf.sqrt(u_hat) + self._epsilon))
         return new_x, new_optim_state
 
 

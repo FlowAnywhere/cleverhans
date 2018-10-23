@@ -30,21 +30,20 @@ SOURCE_SAMPLES = 10
 LEARNING_RATE = .001
 ZOO_LEARNING_RATE = .2
 ATTACK_ITERATIONS = 3000  # 1000
-INIT_CONST = 10
-BINARY_SEARCH_STEPS = 2
+INIT_CONST = 1
+BINARY_SEARCH_STEPS = 9
 MODEL_PATH = os.path.join('models', 'mnist')
 TARGETED = True
-SOLVER = 'adam'
 
 
-def mnist_zoo(train_start=0, train_end=60000, test_start=0,
-              test_end=10000, viz_enabled=VIZ_ENABLED,
-              nb_epochs=NB_EPOCHS, batch_size=BATCH_SIZE,
-              source_samples=SOURCE_SAMPLES,
-              learning_rate=LEARNING_RATE,
-              attack_iterations=ATTACK_ITERATIONS,
-              model_path=MODEL_PATH,
-              targeted=TARGETED):
+def svhn_zoo(train_start=0, train_end=73257, test_start=0,
+             test_end=26032, viz_enabled=VIZ_ENABLED,
+             nb_epochs=NB_EPOCHS, batch_size=BATCH_SIZE,
+             source_samples=SOURCE_SAMPLES,
+             learning_rate=LEARNING_RATE,
+             attack_iterations=ATTACK_ITERATIONS,
+             model_path=MODEL_PATH,
+             targeted=TARGETED):
     """
     MNIST tutorial for Carlini and Wagner's attack
     :param train_start: index of first training set example
@@ -74,8 +73,7 @@ def mnist_zoo(train_start=0, train_end=60000, test_start=0,
     set_log_level(logging.DEBUG)
 
     # Get MNIST test data
-    mnist = dataset.MNIST(train_start=train_start, train_end=train_end, test_start=test_start, test_end=test_end,
-                          center=False)
+    mnist = dataset.SVHN(train_start=train_start, train_end=train_end, test_start=test_start, test_end=test_end)
     x_train, y_train, x_test, y_test = mnist.get_set('train') + mnist.get_set('test')
 
     # Obtain Image Parameters
@@ -83,7 +81,8 @@ def mnist_zoo(train_start=0, train_end=60000, test_start=0,
     nb_classes = y_train.shape[1]
 
     # Define input TF placeholder
-    x = tf.placeholder(tf.float32, shape=(None, img_rows, img_cols, nchannels))
+    x = tf.placeholder(tf.float32, shape=(None, img_rows, img_cols,
+                                          nchannels))
     y = tf.placeholder(tf.float32, shape=(None, nb_classes))
     nb_filters = 64
 
@@ -105,7 +104,7 @@ def mnist_zoo(train_start=0, train_end=60000, test_start=0,
         'filename': os.path.split(model_path)[-1]
     }
 
-    rng = np.random.RandomState([2018, 10, 22])
+    rng = np.random.RandomState([2017, 8, 30])
     # check if we've trained before, and if we have, use that pre-trained model
     if os.path.exists(model_path + ".meta"):
         tf_model_load(sess, model_path)
@@ -128,28 +127,36 @@ def mnist_zoo(train_start=0, train_end=60000, test_start=0,
     print('Crafting ' + str(source_samples) + ' * ' + nb_adv_per_sample + ' adversarial examples')
     print("This could take some time ...")
 
-    # Instantiate a Zoo attack object
-    zoo = Zoo(model, sess=sess)
+    # Instantiate a CW attack object
+    cw = Zoo(model, sess=sess)
 
     if viz_enabled:
         assert source_samples == nb_classes
-        idxs = [np.where(np.argmax(y_test, axis=1) == i)[0][0] for i in range(nb_classes)]
+        idxs = [np.where(np.argmax(y_test, axis=1) == i)[0][0]
+                for i in range(nb_classes)]
     if targeted:
         if viz_enabled:
             # Initialize our array for grid visualization
-            grid_shape = (nb_classes, nb_classes, img_rows, img_cols, nchannels)
+            grid_shape = (nb_classes, nb_classes, img_rows, img_cols,
+                          nchannels)
             grid_viz_data = np.zeros(grid_shape, dtype='f')
 
-            adv_inputs = np.array([[instance] * nb_classes for instance in x_test[idxs]], dtype=np.float32)
+            adv_inputs = np.array(
+                [[instance] * nb_classes for instance in x_test[idxs]],
+                dtype=np.float32)
         else:
-            adv_inputs = np.array([[instance] * nb_classes for instance in x_test[:source_samples]], dtype=np.float32)
+            adv_inputs = np.array(
+                [[instance] * nb_classes for
+                 instance in x_test[:source_samples]], dtype=np.float32)
 
         one_hot = np.zeros((nb_classes, nb_classes))
         one_hot[np.arange(nb_classes), np.arange(nb_classes)] = 1
 
-        adv_inputs = adv_inputs.reshape((source_samples * nb_classes, img_rows, img_cols, nchannels))
-        adv_ys = np.array([one_hot] * source_samples, dtype=np.float32).reshape(
-            (source_samples * nb_classes, nb_classes))
+        adv_inputs = adv_inputs.reshape(
+            (source_samples * nb_classes, img_rows, img_cols, nchannels))
+        adv_ys = np.array([one_hot] * source_samples,
+                          dtype=np.float32).reshape((source_samples *
+                                                     nb_classes, nb_classes))
         yname = "y_target"
     else:
         if viz_enabled:
@@ -164,17 +171,16 @@ def mnist_zoo(train_start=0, train_end=60000, test_start=0,
         adv_ys = None
         yname = "y"
 
-    zoo_params = {'binary_search_steps': BINARY_SEARCH_STEPS,
-                  yname: adv_ys,
-                  'max_iterations': attack_iterations,
-                  'learning_rate': ZOO_LEARNING_RATE,
-                  'batch_size': source_samples * nb_classes if targeted else source_samples,
-                  'initial_const': INIT_CONST,
-                  'solver': SOLVER,
-                  'image_shape': [img_rows, img_cols, nchannels],
-                  'nb_classes': nb_classes}
+    cw_params = {'binary_search_steps': BINARY_SEARCH_STEPS,
+                 yname: adv_ys,
+                 'max_iterations': attack_iterations,
+                 'learning_rate': ZOO_LEARNING_RATE,
+                 'batch_size': source_samples * nb_classes if
+                 targeted else source_samples,
+                 'initial_const': INIT_CONST}
 
-    adv = zoo.generate_np(adv_inputs, **zoo_params)
+    adv = cw.generate_np(adv_inputs,
+                         **cw_params)
 
     eval_params = {'batch_size': np.minimum(nb_classes, source_samples)}
     if targeted:
@@ -217,25 +223,31 @@ def mnist_zoo(train_start=0, train_end=60000, test_start=0,
 
 
 def main(argv=None):
-    mnist_zoo(viz_enabled=FLAGS.viz_enabled,
-              nb_epochs=FLAGS.nb_epochs,
-              batch_size=FLAGS.batch_size,
-              source_samples=FLAGS.source_samples,
-              learning_rate=FLAGS.learning_rate,
-              attack_iterations=FLAGS.attack_iterations,
-              model_path=FLAGS.model_path,
-              targeted=FLAGS.targeted)
+    svhn_zoo(viz_enabled=FLAGS.viz_enabled,
+             nb_epochs=FLAGS.nb_epochs,
+             batch_size=FLAGS.batch_size,
+             source_samples=FLAGS.source_samples,
+             learning_rate=FLAGS.learning_rate,
+             attack_iterations=FLAGS.attack_iterations,
+             model_path=FLAGS.model_path,
+             targeted=FLAGS.targeted)
 
 
 if __name__ == '__main__':
-    flags.DEFINE_boolean('viz_enabled', VIZ_ENABLED, 'Visualize adversarial ex.')
-    flags.DEFINE_integer('nb_epochs', NB_EPOCHS, 'Number of epochs to train model')
+    flags.DEFINE_boolean('viz_enabled', VIZ_ENABLED,
+                         'Visualize adversarial ex.')
+    flags.DEFINE_integer('nb_epochs', NB_EPOCHS,
+                         'Number of epochs to train model')
     flags.DEFINE_integer('batch_size', BATCH_SIZE, 'Size of training batches')
-    flags.DEFINE_integer('source_samples', SOURCE_SAMPLES, 'Number of test inputs to attack')
-    flags.DEFINE_float('learning_rate', LEARNING_RATE, 'Learning rate for training')
-    flags.DEFINE_string('model_path', MODEL_PATH, 'Path to save or load the model file')
-    flags.DEFINE_integer('attack_iterations', ATTACK_ITERATIONS, 'Number of iterations to run attack; 1000 is good')
-    flags.DEFINE_boolean('targeted', TARGETED, 'Run the tutorial in targeted mode?')
-    flags.DEFINE_string('solver', SOLVER, 'Adam or Newton?')
+    flags.DEFINE_integer('source_samples', SOURCE_SAMPLES,
+                         'Number of test inputs to attack')
+    flags.DEFINE_float('learning_rate', LEARNING_RATE,
+                       'Learning rate for training')
+    flags.DEFINE_string('model_path', MODEL_PATH,
+                        'Path to save or load the model file')
+    flags.DEFINE_integer('attack_iterations', ATTACK_ITERATIONS,
+                         'Number of iterations to run attack; 1000 is good')
+    flags.DEFINE_boolean('targeted', TARGETED,
+                         'Run the tutorial in targeted mode?')
 
     tf.app.run()

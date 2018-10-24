@@ -1,5 +1,5 @@
 """
-
+ZOO
 """
 from __future__ import absolute_import
 from __future__ import division
@@ -34,7 +34,7 @@ INIT_CONST = 100
 BINARY_SEARCH_STEPS = 2
 TARGETED = True
 SOLVER = 'adam'
-DATASET = 'SVHN'
+DATASET = 'MNIST'
 MODEL_PATH = os.path.join(os.path.join('models', DATASET.lower()), DATASET.lower())
 
 

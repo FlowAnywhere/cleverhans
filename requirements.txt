@@ -1,2 +1,2 @@
-numba
-keras
+tensorflow=1.10
+joblib

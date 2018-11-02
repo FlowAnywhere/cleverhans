@@ -4,11 +4,11 @@ from __future__ import print_function
 from __future__ import unicode_literals
 
 import copy
+import time
 import warnings
 
 import numpy as np
 import tensorflow as tf
-import time
 from six.moves import xrange
 
 from cleverhans.compat import reduce_any
@@ -1214,10 +1214,10 @@ class Zoo:
         o_bestattack = img
 
         global_step = 0
-        adv_summary = tf.summary.image('Adversarial/OriginalClass/' + str(original_lab), self.newimg, 1,
-                                       family=str(np.argmax(lab)))
-        pert_summary = tf.summary.image('Perturbation/OriginalClass/' + str(original_lab), self.modifier, 1,
-                                        family=str(np.argmax(lab)))
+        adv_summary = tf.summary.image('OriginalClass/' + str(original_lab), self.newimg, 1,
+                                       family='Adversarial for Target Class ' + str(np.argmax(lab)))
+        pert_summary = tf.summary.image('OriginalClass/' + str(original_lab), self.modifier, 1,
+                                        family='Perturbation for Target Class ' + str(np.argmax(lab)))
 
         for outer_step in range(self.BINARY_SEARCH_STEPS):
             _logger.info('********* round %i', outer_step)

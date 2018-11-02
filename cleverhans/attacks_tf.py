@@ -1215,9 +1215,9 @@ class Zoo:
 
         global_step = 0
         adv_summary = tf.summary.image('OriginalClass/' + str(original_lab), self.newimg, 1,
-                                       family='Adversarial for Target Class ' + str(np.argmax(lab)))
+                                       family='Target Class ' + str(np.argmax(lab)) + ': Adversarial Example')
         pert_summary = tf.summary.image('OriginalClass/' + str(original_lab), self.modifier, 1,
-                                        family='Perturbation for Target Class ' + str(np.argmax(lab)))
+                                        family='Target Class ' + str(np.argmax(lab)) + ': Perturbation')
 
         for outer_step in range(self.BINARY_SEARCH_STEPS):
             _logger.info('********* round %i', outer_step)

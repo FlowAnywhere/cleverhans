@@ -1179,7 +1179,7 @@ class Zoo:
         # we can only run 1 image at a time, minibatches are used for gradient evaluation
         for i in range(0, len(imgs)):
             _logger.info('================== generating adavasarial example %s', str(i))
-            adv = self.attack_batch(imgs[i], targets[i], math.floor(i / self.num_labels) + 1)
+            adv = self.attack_batch(imgs[i], targets[i], math.floor(i / self.num_labels))
             r.append(adv)
         return np.array(r)
 

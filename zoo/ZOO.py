@@ -16,14 +16,13 @@ from tensorflow.python.platform import flags
 from cleverhans import dataset
 from cleverhans.attacks import Zoo
 from cleverhans.loss import CrossEntropy
-from cleverhans.utils import grid_visual, AccuracyReport
+from cleverhans.utils import AccuracyReport
 from cleverhans.utils import set_log_level
 from cleverhans.utils_tf import train, model_eval, tf_model_load
 from cleverhans_tutorials.tutorial_models import ModelBasicCNN
 
 FLAGS = flags.FLAGS
 
-VIZ_ENABLED = True
 BATCH_SIZE = 128
 NB_EPOCHS = 6
 SOURCE_SAMPLES = 10
@@ -38,8 +37,7 @@ DATASET = 'MNIST'
 MODEL_PATH = os.path.join(os.path.join('models', DATASET.lower()), DATASET.lower())
 
 
-def zoo(viz_enabled=VIZ_ENABLED,
-        nb_epochs=NB_EPOCHS, batch_size=BATCH_SIZE,
+def zoo(nb_epochs=NB_EPOCHS, batch_size=BATCH_SIZE,
         source_samples=SOURCE_SAMPLES,
         learning_rate=LEARNING_RATE,
         attack_iterations=ATTACK_ITERATIONS,
@@ -144,18 +142,10 @@ def zoo(viz_enabled=VIZ_ENABLED,
     # Instantiate a Zoo attack object
     zoo = Zoo(model, sess=sess)
 
-    if viz_enabled:
-        assert source_samples == nb_classes
-        idxs = [np.where(np.argmax(y_test, axis=1) == i)[0][0] for i in range(nb_classes)]
+    assert source_samples == nb_classes
+    idxs = [np.where(np.argmax(y_test, axis=1) == i)[0][0] for i in range(nb_classes)]
     if targeted:
-        if viz_enabled:
-            # Initialize our array for grid visualization
-            grid_shape = (nb_classes, nb_classes, img_rows, img_cols, nchannels)
-            grid_viz_data = np.zeros(grid_shape, dtype='f')
-
-            adv_inputs = np.array([[instance] * nb_classes for instance in x_test[idxs]], dtype=np.float32)
-        else:
-            adv_inputs = np.array([[instance] * nb_classes for instance in x_test[:source_samples]], dtype=np.float32)
+        adv_inputs = np.array([[instance] * nb_classes for instance in x_test[idxs]], dtype=np.float32)
 
         one_hot = np.zeros((nb_classes, nb_classes))
         one_hot[np.arange(nb_classes), np.arange(nb_classes)] = 1
@@ -165,14 +155,7 @@ def zoo(viz_enabled=VIZ_ENABLED,
             (source_samples * nb_classes, nb_classes))
         yname = "y_target"
     else:
-        if viz_enabled:
-            # Initialize our array for grid visualization
-            grid_shape = (nb_classes, 2, img_rows, img_cols, nchannels)
-            grid_viz_data = np.zeros(grid_shape, dtype='f')
-
-            adv_inputs = x_test[idxs]
-        else:
-            adv_inputs = x_test[:source_samples]
+        adv_inputs = x_test[idxs]
 
         adv_ys = None
         yname = "y"
@@ -193,21 +176,7 @@ def zoo(viz_enabled=VIZ_ENABLED,
     if targeted:
         adv_accuracy = model_eval(sess, x, y, preds, adv, adv_ys, args=eval_params)
     else:
-        if viz_enabled:
-            adv_accuracy = 1 - model_eval(sess, x, y, preds, adv, y_test[idxs], args=eval_params)
-        else:
-            adv_accuracy = 1 - model_eval(sess, x, y, preds, adv, y_test[:source_samples], args=eval_params)
-
-    if viz_enabled:
-        for j in range(nb_classes):
-            if targeted:
-                for i in range(nb_classes):
-                    grid_viz_data[i, j] = adv[i * nb_classes + j]
-            else:
-                grid_viz_data[j, 0] = adv_inputs[j]
-                grid_viz_data[j, 1] = adv[j]
-
-        print(grid_viz_data.shape)
+        adv_accuracy = 1 - model_eval(sess, x, y, preds, adv, y_test[idxs], args=eval_params)
 
     print('--------------------------------------')
 
@@ -222,16 +191,11 @@ def zoo(viz_enabled=VIZ_ENABLED,
     # Close TF session
     sess.close()
 
-    # Finally, block & display a grid of all the adversarial examples
-    if viz_enabled:
-        _ = grid_visual(grid_viz_data)
-
     return report
 
 
 def main(argv=None):
-    zoo(viz_enabled=FLAGS.viz_enabled,
-        nb_epochs=FLAGS.nb_epochs,
+    zoo(nb_epochs=FLAGS.nb_epochs,
         batch_size=FLAGS.batch_size,
         source_samples=FLAGS.source_samples,
         learning_rate=FLAGS.learning_rate,
@@ -241,7 +205,6 @@ def main(argv=None):
 
 
 if __name__ == '__main__':
-    flags.DEFINE_boolean('viz_enabled', VIZ_ENABLED, 'Visualize adversarial ex.')
     flags.DEFINE_integer('nb_epochs', NB_EPOCHS, 'Number of epochs to train model')
     flags.DEFINE_integer('batch_size', BATCH_SIZE, 'Size of training batches')
     flags.DEFINE_integer('source_samples', SOURCE_SAMPLES, 'Number of test inputs to attack')

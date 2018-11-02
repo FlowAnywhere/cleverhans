@@ -1004,8 +1004,7 @@ class Zoo:
 
         # the real variable, initialized to 0
         self.real_modifier = np.zeros((1,) + single_shape, dtype=np.float32)
-        # self.real_modifier = np.random.randn(image_size * image_size * num_channels).astype(np.float32).reshape((1,) + single_shape)
-        # self.real_modifier /= np.linalg.norm(self.real_modifier)
+
         # these are variables to be more efficient in sending data to tf
         # we only work on 1 image at once; the batch is for evaluation loss at different modifiers
         self.timg = tf.Variable(np.zeros(single_shape), dtype=tf.float32)
@@ -1019,6 +1018,9 @@ class Zoo:
 
         # the resulting image
         self.newimg = self.modifier + self.timg
+
+        # self.adv_summary = tf.summary.image('Adversarial/TargetClass/', self.newimg, 1, family=self.target_label.eval(session=self.sess))
+        # self.pert_summary = tf.summary.image('Perturbation/TargetClass/' , self.modifier, 1, family=self.target_label.eval(session=self.sess))
 
         # prediction
         # now we have output at #batch_size different modifiers
@@ -1096,6 +1098,9 @@ class Zoo:
         self.solver = self.coordinate_ADAM if self.solver_name == 'adam' else self.coordinate_Newton
         _logger.info("Using solver: %s", solver)
 
+        self.merged = tf.summary.merge_all()
+        self.attack_writer = tf.summary.FileWriter('./attack_log', self.sess.graph)
+
     def coordinate_ADAM(self, losses, indice, grad, hess, batch_size, mt_arr, vt_arr, real_modifier, up, down, lr,
                         adam_epoch,
                         beta1, beta2):
@@ -1140,7 +1145,7 @@ class Zoo:
 
         m[indice] = old_val
 
-    def blackbox_optimizer(self, iteration):
+    def blackbox_optimizer(self, iteration, adv_summary, pert_summary):
         # build new inputs, based on current variable value
         var = np.repeat(self.real_modifier, self.batch_size * 2 + 1, axis=0)
         var_size = self.real_modifier.size
@@ -1150,13 +1155,16 @@ class Zoo:
         for i in range(self.batch_size):
             var[i * 2 + 1].reshape(-1)[indice[i]] += 0.0001
             var[i * 2 + 2].reshape(-1)[indice[i]] -= 0.0001
-        losses, l2s, loss1, loss2, scores, nimgs = self.sess.run(
-            [self.loss, self.l2dist, self.loss1, self.loss2, self.output, self.newimg], feed_dict={self.modifier: var})
+
+        losses, l2s, loss1, loss2, scores, nimgs, summary_adv, summary_pert = self.sess.run(
+            [self.loss, self.l2dist, self.loss1, self.loss2, self.output, self.newimg,
+             adv_summary, pert_summary],
+            feed_dict={self.modifier: var})
 
         self.solver(losses, indice, self.grad, self.hess, self.batch_size, self.mt, self.vt, self.real_modifier,
                     self.modifier_up, self.modifier_down, self.LEARNING_RATE, self.adam_epoch, self.beta1, self.beta2)
 
-        return losses[0], l2s[0], loss1[0], loss2[0], scores[0], nimgs[0]
+        return losses[0], l2s[0], loss1[0], loss2[0], scores[0], nimgs[0], summary_adv, summary_pert
 
     def attack(self, imgs, targets):
         """
@@ -1165,15 +1173,18 @@ class Zoo:
         If self.targeted is true, then the targets represents the target labels.
         If self.targeted is false, then targets are the original class labels.
         """
+        import math
+
         r = []
         # we can only run 1 image at a time, minibatches are used for gradient evaluation
         for i in range(0, len(imgs)):
             _logger.info('================== generating adavasarial example %s', str(i))
-            r.append(self.attack_batch(imgs[i], targets[i]))
+            adv = self.attack_batch(imgs[i], targets[i], math.floor(i / self.num_labels) + 1)
+            r.append(adv)
         return np.array(r)
 
     # only accepts 1 image at a time. Batch is used for gradient evaluations at different points
-    def attack_batch(self, img, lab):
+    def attack_batch(self, img, lab, original_lab):
         """
         Run the attack on a batch of images and labels.
         """
@@ -1201,6 +1212,12 @@ class Zoo:
         # the best l2, score, and image attack
         o_bestl2 = 1e10
         o_bestattack = img
+
+        global_step = 0
+        adv_summary = tf.summary.image('Adversarial/OriginalClass/' + str(original_lab), self.newimg, 1,
+                                       family=str(np.argmax(lab)))
+        pert_summary = tf.summary.image('Perturbation/OriginalClass/' + str(original_lab), self.modifier, 1,
+                                        family=str(np.argmax(lab)))
 
         for outer_step in range(self.BINARY_SEARCH_STEPS):
             _logger.info('********* round %i', outer_step)
@@ -1231,6 +1248,8 @@ class Zoo:
             self.adam_epoch.fill(1)
 
             for iteration in range(self.MAX_ITERATIONS):
+                global_step += 1
+
                 # print out the losses
                 if iteration % (self.print_every) == 0:
                     loss, real, other, loss1, loss2 = self.sess.run(
@@ -1243,7 +1262,9 @@ class Zoo:
 
                 attack_begin_time = time.time()
                 # perform the attack
-                l, l2, loss1, loss2, score, nimg = self.blackbox_optimizer(iteration)
+                l, l2, loss1, loss2, score, nimg, summary_adv, summary_pert = self.blackbox_optimizer(iteration,
+                                                                                                      adv_summary,
+                                                                                                      pert_summary)
 
                 # reset ADAM states when a valid example has been found
                 if loss1 == 0.0 and last_loss1 != 0.0:
@@ -1268,6 +1289,11 @@ class Zoo:
                 if l2 < bestl2 and compare(score, np.argmax(lab)):
                     bestl2 = l2
                     bestscore = np.argmax(score)
+
+                if l2 < o_bestl2:
+                    self.attack_writer.add_summary(summary_adv, global_step)
+                    self.attack_writer.add_summary(summary_pert, global_step)
+
                 if l2 < o_bestl2 and compare(score, np.argmax(lab)):
                     _logger.info(
                         "[Valid (better) attack found!] iter = {}, time = {:.3f}, size = {}, loss = {:.5g}, loss1 = {:.5g}, loss2 = {:.5g}, l2 = {:.5g}".format(

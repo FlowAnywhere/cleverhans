@@ -8,6 +8,7 @@ from __future__ import unicode_literals
 
 import logging
 import os
+import time
 
 import numpy as np
 import tensorflow as tf
@@ -29,8 +30,8 @@ SOURCE_SAMPLES = 10
 LEARNING_RATE = .001
 ZOO_LEARNING_RATE = .01
 ATTACK_ITERATIONS = 3000  # 1000
-INIT_CONST = 100
-BINARY_SEARCH_STEPS = 3
+INIT_CONST =0.01
+BINARY_SEARCH_STEPS = 9
 TARGETED = True
 SOLVER = 'adam'
 DATASET = 'MNIST'
@@ -170,7 +171,11 @@ def zoo(nb_epochs=NB_EPOCHS, batch_size=BATCH_SIZE,
                   'image_shape': [img_rows, img_cols, nchannels],
                   'nb_classes': nb_classes}
 
+    attack_time = time.time()
+
     adv = zoo.generate_np(adv_inputs, **zoo_params)
+
+    attack_time = time.time() - attack_time
 
     eval_params = {'batch_size': np.minimum(nb_classes, source_samples)}
     if targeted:
@@ -187,6 +192,8 @@ def zoo(nb_epochs=NB_EPOCHS, batch_size=BATCH_SIZE,
     # Compute the average distortion introduced by the algorithm
     percent_perturbed = np.mean(np.sum((adv - adv_inputs) ** 2, axis=(1, 2, 3)) ** .5)
     print('Avg. L_2 norm of perturbations {0:.4f}'.format(percent_perturbed))
+
+    print('Avg. attack time {0:.4f}'.format(attack_time / adv_inputs.shape[0]))
 
     # Close TF session
     sess.close()

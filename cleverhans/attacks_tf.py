@@ -1025,9 +1025,11 @@ class Zoo:
         self.output = self.model.get_probs(self.newimg)
 
         # distance to the input data
-        self.l2dist = tf.reduce_sum(tf.square(self.newimg - self.timg), [1, 2, 3]) \
-                      + tf.reduce_sum(tf.square(self.modelAE.get_encoded(self.newimg) - self.modelAE.get_encoded(
-            tf.expand_dims(self.timg, 0))), [1, 2, 3])
+        # self.l2dist = tf.reduce_sum(tf.square(self.newimg - self.timg), [1, 2, 3]) \
+        #               + tf.reduce_sum(tf.square(self.modelAE.get_encoded(self.newimg) - self.modelAE.get_encoded(
+        #     tf.expand_dims(self.timg, 0))), [1, 2, 3])
+
+        self.l2dist = tf.reduce_sum(tf.square(self.newimg - self.timg), [1, 2, 3])
 
         # compute the probability of the label class versus the maximum other
         # self.tlab * self.output selects the Z value of real class

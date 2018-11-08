@@ -1000,7 +1000,6 @@ class Zoo:
 
         # the variable we're going to optimize over
         # support multiple batches
-
         self.modifier = tf.placeholder(tf.float32, shape=shape)
 
         # the real variable, initialized to 0
@@ -1026,9 +1025,9 @@ class Zoo:
         self.output = self.model.get_probs(self.newimg)
 
         # distance to the input data
-        self.l2dist = tf.reduce_sum(tf.square(self.newimg - self.timg), [1, 2, 3]) + tf.reduce_sum(tf.square(
-            self.modelAE.get_encoded(self.newimg) - self.modelAE.get_encoded(
-                tf.expand_dims(self.timg, 0))))
+        self.l2dist = tf.reduce_sum(tf.square(self.newimg - self.timg), [1, 2, 3]) \
+                      + tf.reduce_sum(tf.square(self.modelAE.get_encoded(self.newimg) - self.modelAE.get_encoded(
+            tf.expand_dims(self.timg, 0))), [1, 2, 3])
 
         # compute the probability of the label class versus the maximum other
         # self.tlab * self.output selects the Z value of real class
@@ -1215,16 +1214,16 @@ class Zoo:
         o_bestattack = img
 
         global_step = 0
-        adv_summary = tf.summary.image('OC/' + str(original_lab), self.newimg, 1,
+        adv_summary = tf.summary.image('OC/' + str(original_lab), tf.gather(self.newimg, 0), 1,
                                        family='TC ' + str(np.argmax(lab)) + ':M')
-        pert_summary = tf.summary.image('OC/' + str(original_lab), self.modifier, 1,
+        pert_summary = tf.summary.image('OC/' + str(original_lab), tf.gather(self.modifier, 0), 1,
                                         family='TC ' + str(np.argmax(lab)) + ':P')
 
         loss1_summary = tf.summary.scalar('OC/' + str(original_lab) + '/loss1', self.loss1,
                                           family='TC ' + str(np.argmax(lab)))
-        loss2_summary = tf.summary.scalar('OC/' + str(original_lab) + '/loss2', self.loss2,
+        loss2_summary = tf.summary.scalar('OC/' + str(original_lab) + '/loss2', tf.gather(self.loss2, 0),
                                           family='TC ' + str(np.argmax(lab)))
-        loss_summary = tf.summary.scalar('OC/' + str(original_lab) + '/loss', self.loss,
+        loss_summary = tf.summary.scalar('OC/' + str(original_lab) + '/loss', tf.gather(self.loss, 0),
                                          family='TC ' + str(np.argmax(lab)))
 
         for outer_step in range(self.BINARY_SEARCH_STEPS):

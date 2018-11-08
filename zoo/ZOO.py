@@ -145,6 +145,8 @@ def zoo(nb_epochs=NB_EPOCHS, batch_size=BATCH_SIZE,
         train(sess, lossAE, x, x_pie, x_noisy_train, x_train, args=train_params, rng=rng,
               var_list=tf.trainable_variables(scope=DATASET + 'AE'))
 
+        os.makedirs(os.path.split(model_path)[0], exist_ok=True)
+
         saver = tf.train.Saver()
         saver.save(sess, model_path)
 
@@ -164,7 +166,7 @@ def zoo(nb_epochs=NB_EPOCHS, batch_size=BATCH_SIZE,
     print("This could take some time ...")
 
     # Instantiate a Zoo attack object
-    zoo = Zoo(model, modelAE, sess=sess)
+    zoo = Zoo(DATASET + '_' + SOLVER, model, modelAE, sess=sess)
 
     assert source_samples == nb_classes
     idxs = [np.where(np.argmax(y_test, axis=1) == i)[0][0] for i in range(nb_classes)]

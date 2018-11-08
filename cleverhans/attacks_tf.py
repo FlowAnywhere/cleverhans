@@ -947,7 +947,7 @@ class CarliniWagnerL2(object):
 
 
 class Zoo:
-    def __init__(self, sess, model, modelAE, batch_size,
+    def __init__(self, scope, sess, model, modelAE, batch_size,
                  targeted, learning_rate, binary_search_steps, max_iterations, abort_early, initial_const,
                  solver, image_shape, nb_classes, use_log=True, adam_beta1=0.9, adam_beta2=0.999):
         """
@@ -982,7 +982,7 @@ class Zoo:
         self.TARGETED = targeted
         self.LEARNING_RATE = learning_rate
         self.MAX_ITERATIONS = max_iterations
-        self.print_every = 100
+        self.print_every = 300
         self.ABORT_EARLY = abort_early
         self.early_stop_iters = max_iterations // 10
         if self.ABORT_EARLY:
@@ -1019,9 +1019,6 @@ class Zoo:
 
         # the resulting image
         self.newimg = self.modifier + self.timg
-
-        # self.adv_summary = tf.summary.image('Adversarial/TargetClass/', self.newimg, 1, family=self.target_label.eval(session=self.sess))
-        # self.pert_summary = tf.summary.image('Perturbation/TargetClass/' , self.modifier, 1, family=self.target_label.eval(session=self.sess))
 
         # prediction
         # now we have output at #batch_size different modifiers
@@ -1102,9 +1099,7 @@ class Zoo:
         _logger.info("Using solver: %s", solver)
 
         self.merged = tf.summary.merge_all()
-        self.attack_writer = tf.summary.FileWriter('./attack_log', self.sess.graph)
-
-        ##### AE
+        self.attack_writer = tf.summary.FileWriter('./attack_log_' + scope, self.sess.graph)
 
     def coordinate_ADAM(self, losses, indice, grad, hess, batch_size, mt_arr, vt_arr, real_modifier, up, down, lr,
                         adam_epoch,
@@ -1150,7 +1145,7 @@ class Zoo:
 
         m[indice] = old_val
 
-    def blackbox_optimizer(self, iteration, adv_summary, pert_summary):
+    def blackbox_optimizer(self, iteration, adv_summary, pert_summary, loss1_summary, loss2_summary, loss_summary):
         # build new inputs, based on current variable value
         var = np.repeat(self.real_modifier, self.batch_size * 2 + 1, axis=0)
         var_size = self.real_modifier.size
@@ -1161,15 +1156,16 @@ class Zoo:
             var[i * 2 + 1].reshape(-1)[indice[i]] += 0.0001
             var[i * 2 + 2].reshape(-1)[indice[i]] -= 0.0001
 
-        losses, l2s, loss1, loss2, scores, nimgs, summary_adv, summary_pert = self.sess.run(
+        losses, l2s, loss1, loss2, scores, nimgs, summary_adv, summary_pert, summary_loss1, summary_loss2, summary_loss = self.sess.run(
             [self.loss, self.l2dist, self.loss1, self.loss2, self.output, self.newimg,
-             adv_summary, pert_summary],
+             adv_summary, pert_summary, loss1_summary, loss2_summary, loss_summary],
             feed_dict={self.modifier: var})
 
         self.solver(losses, indice, self.grad, self.hess, self.batch_size, self.mt, self.vt, self.real_modifier,
                     self.modifier_up, self.modifier_down, self.LEARNING_RATE, self.adam_epoch, self.beta1, self.beta2)
 
-        return losses[0], l2s[0], loss1[0], loss2[0], scores[0], nimgs[0], summary_adv, summary_pert
+        return losses[0], l2s[0], loss1[0], loss2[0], scores[0], nimgs[
+            0], summary_adv, summary_pert, summary_loss1, summary_loss2, summary_loss
 
     def attack(self, imgs, targets):
         """
@@ -1219,10 +1215,17 @@ class Zoo:
         o_bestattack = img
 
         global_step = 0
-        adv_summary = tf.summary.image('OriginalClass/' + str(original_lab), self.newimg, 1,
-                                       family='Target Class ' + str(np.argmax(lab)) + ': Adversarial Example')
-        pert_summary = tf.summary.image('OriginalClass/' + str(original_lab), self.modifier, 1,
-                                        family='Target Class ' + str(np.argmax(lab)) + ': Perturbation')
+        adv_summary = tf.summary.image('OC/' + str(original_lab), self.newimg, 1,
+                                       family='TC ' + str(np.argmax(lab)) + ':M')
+        pert_summary = tf.summary.image('OC/' + str(original_lab), self.modifier, 1,
+                                        family='TC ' + str(np.argmax(lab)) + ':P')
+
+        loss1_summary = tf.summary.scalar('OC/' + str(original_lab) + '/loss1', self.loss1,
+                                          family='TC ' + str(np.argmax(lab)))
+        loss2_summary = tf.summary.scalar('OC/' + str(original_lab) + '/loss2', self.loss2,
+                                          family='TC ' + str(np.argmax(lab)))
+        loss_summary = tf.summary.scalar('OC/' + str(original_lab) + '/loss', self.loss,
+                                         family='TC ' + str(np.argmax(lab)))
 
         for outer_step in range(self.BINARY_SEARCH_STEPS):
             _logger.info('********* round %i', outer_step)
@@ -1267,9 +1270,13 @@ class Zoo:
 
                 attack_begin_time = time.time()
                 # perform the attack
-                l, l2, loss1, loss2, score, nimg, summary_adv, summary_pert = self.blackbox_optimizer(iteration,
-                                                                                                      adv_summary,
-                                                                                                      pert_summary)
+                l, l2, loss1, loss2, score, nimg, summary_adv, summary_pert, summary_loss1, summary_loss2, summary_loss = self.blackbox_optimizer(
+                    iteration, adv_summary, pert_summary, loss1_summary, loss2_summary, loss_summary)
+
+                if global_step == 1:
+                    # log nearly original image
+                    self.attack_writer.add_summary(summary_adv, global_step)
+                    self.attack_writer.add_summary(summary_pert, global_step)
 
                 # reset ADAM states when a valid example has been found
                 if loss1 == 0.0 and last_loss1 != 0.0:
@@ -1296,13 +1303,19 @@ class Zoo:
                     bestscore = np.argmax(score)
 
                 if l2 < o_bestl2:
-                    self.attack_writer.add_summary(summary_adv, global_step)
-                    self.attack_writer.add_summary(summary_pert, global_step)
+                    self.attack_writer.add_summary(summary_loss1, global_step)
+                    self.attack_writer.add_summary(summary_loss2, global_step)
+                    self.attack_writer.add_summary(summary_loss, global_step)
+                    # self.attack_writer.add_summary(summary_adv, global_step)
+                    # self.attack_writer.add_summary(summary_pert, global_step)
 
                 if l2 < o_bestl2 and compare(score, np.argmax(lab)):
                     _logger.info(
                         "[Valid (better) attack found!] iter = {}, time = {:.3f}, size = {}, loss = {:.5g}, loss1 = {:.5g}, loss2 = {:.5g}, l2 = {:.5g}".format(
                             iteration, train_timer, self.real_modifier.shape, l, loss1, loss2, l2))
+
+                    self.attack_writer.add_summary(summary_adv, global_step)
+                    self.attack_writer.add_summary(summary_pert, global_step)
 
                     o_bestl2 = l2
                     o_bestattack = nimg

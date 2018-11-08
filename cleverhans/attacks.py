@@ -1079,7 +1079,7 @@ class Zoo(Attack):
     """ZOO: Zeroth Order Optimization Based Black-box Attacks to Deep Neural Networks without Training Substitute Models
     """
 
-    def __init__(self, model, modelAE, sess=None, dtypestr='float32'):
+    def __init__(self, scope, model, modelAE, sess=None, dtypestr='float32'):
         """
         Note: the model parameter should be an instance of the
         cleverhans.model.Model abstraction provided by CleverHans.
@@ -1089,6 +1089,7 @@ class Zoo(Attack):
 
         super(Zoo, self).__init__(model, sess, dtypestr)
 
+        self.scope = scope
         self.modelAE = modelAE
 
         self.feedable_kwargs = {'y': self.tf_dtype, 'y_target': self.tf_dtype}
@@ -1144,7 +1145,7 @@ class Zoo(Attack):
 
         labels, nb_classes = self.get_or_guess_labels(x, kwargs)
 
-        attack = Zoo(self.sess, self.model, self.modelAE, self.batch_size,
+        attack = Zoo(self.scope, self.sess, self.model, self.modelAE, self.batch_size,
                      'y_target' in kwargs, self.learning_rate,
                      self.binary_search_steps, self.max_iterations,
                      self.abort_early, self.initial_const, self.solver, self.image_shape, self.nb_classes)

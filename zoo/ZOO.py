@@ -107,9 +107,9 @@ def zoo(nb_epochs=NB_EPOCHS, batch_size=BATCH_SIZE,
     loss = CrossEntropy(model, smoothing=0.1)
     print("Defined TensorFlow model graph.")
 
-    # modelAE = ModelAE(DATASET + 'AE', nb_classes, nb_filters, (None, img_rows, img_cols, nchannels))
-    # lossAE = CrossEntropy(modelAE, smoothing=0)
-    # print("Defined AE.")
+    modelAE = ModelAE(DATASET + 'AE', nb_classes, nb_filters, (None, img_rows, img_cols, nchannels))
+    lossAE = CrossEntropy(modelAE, smoothing=0)
+    print("Defined AE.")
     ###########################################################################
     # Training the model using TensorFlow
     ###########################################################################

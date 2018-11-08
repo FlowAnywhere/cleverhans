@@ -1214,16 +1214,16 @@ class Zoo:
         o_bestattack = img
 
         global_step = 0
-        adv_summary = tf.summary.image('OC/' + str(original_lab), tf.gather(self.newimg, 0), 1,
+        adv_summary = tf.summary.image('OC/' + str(original_lab), self.newimg[0], 1,
                                        family='TC ' + str(np.argmax(lab)) + ':M')
-        pert_summary = tf.summary.image('OC/' + str(original_lab), tf.gather(self.modifier, 0), 1,
+        pert_summary = tf.summary.image('OC/' + str(original_lab), self.modifier[0], 1,
                                         family='TC ' + str(np.argmax(lab)) + ':P')
 
         loss1_summary = tf.summary.scalar('OC/' + str(original_lab) + '/loss1', self.loss1,
                                           family='TC ' + str(np.argmax(lab)))
-        loss2_summary = tf.summary.scalar('OC/' + str(original_lab) + '/loss2', tf.gather(self.loss2, 0),
+        loss2_summary = tf.summary.scalar('OC/' + str(original_lab) + '/loss2', self.loss2[0],
                                           family='TC ' + str(np.argmax(lab)))
-        loss_summary = tf.summary.scalar('OC/' + str(original_lab) + '/loss', tf.gather(self.loss, 0),
+        loss_summary = tf.summary.scalar('OC/' + str(original_lab) + '/loss', self.loss[0],
                                          family='TC ' + str(np.argmax(lab)))
 
         for outer_step in range(self.BINARY_SEARCH_STEPS):

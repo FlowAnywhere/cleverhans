@@ -97,6 +97,7 @@ def zoo(nb_epochs=NB_EPOCHS, batch_size=BATCH_SIZE,
 
     # Define input TF placeholder
     x = tf.placeholder(tf.float32, shape=(None, img_rows, img_cols, nchannels))
+    x_pie = tf.placeholder(tf.float32, shape=(None, img_rows, img_cols, nchannels))
     y = tf.placeholder(tf.float32, shape=(None, nb_classes))
     nb_filters = 64
 
@@ -138,10 +139,10 @@ def zoo(nb_epochs=NB_EPOCHS, batch_size=BATCH_SIZE,
             'filename': os.path.split(model_path)[-1]
         }
         # Add random noise to the input images
-        x_noisy_train = x_train + 0.5 * np.random.randn(x_train.shape)
+        x_noisy_train = x_train + 0.5 * np.random.randn(*x_train.shape)
         # Clip the images to be between 0 and 1
         x_noisy_train = np.clip(x_noisy_train, 0., 1.)
-        train(sess, loss, x, x, x_noisy_train, x_train, args=train_params, rng=rng,
+        train(sess, loss, x, x_pie, x_noisy_train, x_train, args=train_params, rng=rng,
               var_list=tf.trainable_variables(scope=DATASET + 'AE'))
 
         saver = tf.train.Saver()

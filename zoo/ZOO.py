@@ -107,9 +107,9 @@ def zoo(nb_epochs=NB_EPOCHS, batch_size=BATCH_SIZE,
     loss = CrossEntropy(model, smoothing=0.1)
     print("Defined TensorFlow model graph.")
 
-    modelAE = ModelAE(DATASET + 'AE', nb_classes, nb_filters, (None, img_rows, img_cols, nchannels))
-    lossAE = CrossEntropy(modelAE, smoothing=0)
-    print("Defined AE.")
+    # modelAE = ModelAE(DATASET + 'AE', nb_classes, nb_filters, (None, img_rows, img_cols, nchannels))
+    # lossAE = CrossEntropy(modelAE, smoothing=0)
+    # print("Defined AE.")
     ###########################################################################
     # Training the model using TensorFlow
     ###########################################################################
@@ -131,19 +131,19 @@ def zoo(nb_epochs=NB_EPOCHS, batch_size=BATCH_SIZE,
         train(sess, loss, x, y, x_train, y_train, args=train_params, rng=rng,
               var_list=tf.trainable_variables(scope=DATASET))
 
-        print('Starting to train AE')
-        train_params = {
-            'nb_epochs': NB_EPOCHS_AE,
-            'batch_size': batch_size,
-            'learning_rate': learning_rate,
-            'filename': os.path.split(model_path)[-1]
-        }
-        # Add random noise to the input images
-        x_noisy_train = x_train + 0.5 * np.random.randn(*x_train.shape)
-        # Clip the images to be between 0 and 1
-        x_noisy_train = np.clip(x_noisy_train, 0., 1.)
-        train(sess, lossAE, x, x_pie, x_noisy_train, x_train, args=train_params, rng=rng,
-              var_list=tf.trainable_variables(scope=DATASET + 'AE'))
+        # print('Starting to train AE')
+        # train_params = {
+        #     'nb_epochs': NB_EPOCHS_AE,
+        #     'batch_size': batch_size,
+        #     'learning_rate': learning_rate,
+        #     'filename': os.path.split(model_path)[-1]
+        # }
+        # # Add random noise to the input images
+        # x_noisy_train = x_train + 0.5 * np.random.randn(*x_train.shape)
+        # # Clip the images to be between 0 and 1
+        # x_noisy_train = np.clip(x_noisy_train, 0., 1.)
+        # train(sess, lossAE, x, x_pie, x_noisy_train, x_train, args=train_params, rng=rng,
+        #       var_list=tf.trainable_variables(scope=DATASET + 'AE'))
 
         os.makedirs(os.path.split(model_path)[0], exist_ok=True)
 

@@ -1219,7 +1219,7 @@ class Zoo:
         pert_summary = tf.summary.image('OC/' + str(original_lab), tf.expand_dims(self.modifier[0], 0), 1,
                                         family='TC ' + str(np.argmax(lab)) + ':P')
 
-        loss1_summary = tf.summary.scalar('OC/' + str(original_lab) + '/loss1', self.loss1,
+        loss1_summary = tf.summary.scalar('OC/' + str(original_lab) + '/loss1', self.loss1[0],
                                           family='TC ' + str(np.argmax(lab)))
         loss2_summary = tf.summary.scalar('OC/' + str(original_lab) + '/loss2', self.loss2[0],
                                           family='TC ' + str(np.argmax(lab)))

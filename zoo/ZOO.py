@@ -142,7 +142,7 @@ def zoo(nb_epochs=NB_EPOCHS, batch_size=BATCH_SIZE,
         x_noisy_train = x_train + 0.5 * np.random.randn(*x_train.shape)
         # Clip the images to be between 0 and 1
         x_noisy_train = np.clip(x_noisy_train, 0., 1.)
-        train(sess, lossAE, x, x_pie, x_noisy_train, x_train, args=train_params, rng=rng,
+        train(sess, lossAE, x, x_pie, x_noisy_train, x_train, init_all=False, args=train_params, rng=rng,
               var_list=tf.trainable_variables(scope=DATASET + 'AE'))
 
         os.makedirs(os.path.split(model_path)[0], exist_ok=True)

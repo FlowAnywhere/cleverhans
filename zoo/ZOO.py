@@ -20,17 +20,18 @@ from cleverhans.loss import CrossEntropy
 from cleverhans.utils import AccuracyReport
 from cleverhans.utils import set_log_level
 from cleverhans.utils_tf import train, model_eval, tf_model_load
-from cleverhans_tutorials.tutorial_models import ModelBasicCNN
+from cleverhans_tutorials.tutorial_models import ModelBasicCNN, ModelAE
 
 FLAGS = flags.FLAGS
 
 BATCH_SIZE = 128
 NB_EPOCHS = 6
+NB_EPOCHS_AE = 100
 SOURCE_SAMPLES = 10
 LEARNING_RATE = .001
 ZOO_LEARNING_RATE = .01
 ATTACK_ITERATIONS = 3000  # 1000
-INIT_CONST =0.01
+INIT_CONST = 0.01
 BINARY_SEARCH_STEPS = 9
 TARGETED = True
 SOLVER = 'adam'
@@ -105,6 +106,9 @@ def zoo(nb_epochs=NB_EPOCHS, batch_size=BATCH_SIZE,
     loss = CrossEntropy(model, smoothing=0.1)
     print("Defined TensorFlow model graph.")
 
+    modelAE = ModelAE(DATASET + 'AE', nb_classes, nb_filters, (None, img_rows, img_cols, nchannels))
+    lossAE = CrossEntropy(modelAE, smoothing=0)
+    print("Defined AE.")
     ###########################################################################
     # Training the model using TensorFlow
     ###########################################################################
@@ -122,7 +126,24 @@ def zoo(nb_epochs=NB_EPOCHS, batch_size=BATCH_SIZE,
     if os.path.exists(model_path + ".meta"):
         tf_model_load(sess, model_path)
     else:
-        train(sess, loss, x, y, x_train, y_train, args=train_params, rng=rng)
+        print('Starting to train blackbox model')
+        train(sess, loss, x, y, x_train, y_train, args=train_params, rng=rng,
+              var_list=tf.trainable_variables(scope=DATASET))
+
+        print('Starting to train AE')
+        train_params = {
+            'nb_epochs': NB_EPOCHS_AE,
+            'batch_size': batch_size,
+            'learning_rate': learning_rate,
+            'filename': os.path.split(model_path)[-1]
+        }
+        # Add random noise to the input images
+        x_noisy_train = x_train + 0.5 * np.random.randn(x_train.shape)
+        # Clip the images to be between 0 and 1
+        x_noisy_train = np.clip(x_noisy_train, 0., 1.)
+        train(sess, loss, x, x, x_noisy_train, x_train, args=train_params, rng=rng,
+              var_list=tf.trainable_variables(scope=DATASET + 'AE'))
+
         saver = tf.train.Saver()
         saver.save(sess, model_path)
 
@@ -134,14 +155,15 @@ def zoo(nb_epochs=NB_EPOCHS, batch_size=BATCH_SIZE,
     report.clean_train_clean_eval = accuracy
 
     ###########################################################################
-    # Craft adversarial examples using Carlini and Wagner's approach
+    # Craft adversarial examples
     ###########################################################################
+
     nb_adv_per_sample = str(nb_classes - 1) if targeted else '1'
     print('Crafting ' + str(source_samples) + ' * ' + nb_adv_per_sample + ' adversarial examples')
     print("This could take some time ...")
 
     # Instantiate a Zoo attack object
-    zoo = Zoo(model, sess=sess)
+    zoo = Zoo(model, modelAE, sess=sess)
 
     assert source_samples == nb_classes
     idxs = [np.where(np.argmax(y_test, axis=1) == i)[0][0] for i in range(nb_classes)]

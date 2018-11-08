@@ -947,7 +947,7 @@ class CarliniWagnerL2(object):
 
 
 class Zoo:
-    def __init__(self, sess, model, batch_size,
+    def __init__(self, sess, model, modelAE, batch_size,
                  targeted, learning_rate, binary_search_steps, max_iterations, abort_early, initial_const,
                  solver, image_shape, nb_classes, use_log=True, adam_beta1=0.9, adam_beta2=0.999):
         """
@@ -977,6 +977,7 @@ class Zoo:
 
         self.image_size, self.num_labels = image_shape[0], nb_classes
         self.model = model
+        self.modelAE = modelAE
         self.sess = sess
         self.TARGETED = targeted
         self.LEARNING_RATE = learning_rate
@@ -1025,10 +1026,10 @@ class Zoo:
         # prediction
         # now we have output at #batch_size different modifiers
         # the output should have shape (batch_size, num_labels)
-        self.output = model.get_probs(self.newimg)
+        self.output = self.model.get_probs(self.newimg)
 
         # distance to the input data
-        self.l2dist = tf.reduce_sum(tf.square(self.newimg - self.timg), [1, 2, 3])
+        self.l2dist = tf.reduce_sum(tf.square(self.newimg - self.timg), [1, 2, 3]) + tf.reduce_sum(tf.square(self.model.get_encoded(self.newimg) - self.model.get_encoded(self.timg)), [1, 2, 3])
 
         # compute the probability of the label class versus the maximum other
         # self.tlab * self.output selects the Z value of real class
@@ -1100,6 +1101,10 @@ class Zoo:
 
         self.merged = tf.summary.merge_all()
         self.attack_writer = tf.summary.FileWriter('./attack_log', self.sess.graph)
+
+
+        ##### AE
+
 
     def coordinate_ADAM(self, losses, indice, grad, hess, batch_size, mt_arr, vt_arr, real_modifier, up, down, lr,
                         adam_epoch,

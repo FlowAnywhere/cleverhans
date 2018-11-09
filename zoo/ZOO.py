@@ -25,7 +25,7 @@ from cleverhans_tutorials.tutorial_models import ModelBasicCNN, ModelAE, ModelAl
 FLAGS = flags.FLAGS
 
 SOLVER = 'adam'
-DATASET = 'MNIST'
+DATASET = 'CIFAR10'
 BATCH_SIZE = 128
 NB_EPOCHS = 6 if DATASET == 'MNIST' else 10
 NB_EPOCHS_AE = 100

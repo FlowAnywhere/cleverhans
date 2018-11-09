@@ -1026,7 +1026,7 @@ class Zoo:
 
         # distance to the input data
         self.l2dist = tf.reduce_sum(tf.square(self.newimg - self.timg), [1, 2, 3]) \
-                      + tf.reduce_sum(tf.square(self.modelAE.get_encoded(self.newimg) - self.modelAE.get_encoded(
+                      + 10 * tf.reduce_sum(tf.square(self.modelAE.get_encoded(self.newimg) - self.modelAE.get_encoded(
             tf.expand_dims(self.timg, 0))), [1, 2, 3])
 
         # self.l2dist = tf.reduce_sum(tf.square(self.newimg - self.timg), [1, 2, 3])

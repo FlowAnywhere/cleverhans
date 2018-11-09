@@ -20,7 +20,7 @@ from cleverhans.loss import CrossEntropy
 from cleverhans.utils import AccuracyReport
 from cleverhans.utils import set_log_level
 from cleverhans.utils_tf import train, model_eval, tf_model_load
-from cleverhans_tutorials.tutorial_models import ModelBasicCNN, ModelAE
+from cleverhans_tutorials.tutorial_models import ModelBasicCNN, ModelAE, ModelAllConvolutional
 
 FLAGS = flags.FLAGS
 
@@ -102,7 +102,9 @@ def zoo(nb_epochs=NB_EPOCHS, batch_size=BATCH_SIZE,
     nb_filters = 64
 
     # Define TF model graph
-    model = ModelBasicCNN(DATASET, nb_classes, nb_filters, (None, img_rows, img_cols, nchannels))
+    model = ModelBasicCNN(DATASET, nb_classes, nb_filters,
+                          (None, img_rows, img_cols, nchannels)) if DATASET == 'MNIST' else ModelAllConvolutional(
+        DATASET, nb_classes, nb_filters, (None, img_rows, img_cols, nchannels))
     preds = model.get_logits(x)
     loss = CrossEntropy(model, smoothing=0.1)
     print("Defined TensorFlow model graph.")

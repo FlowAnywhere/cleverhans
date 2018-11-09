@@ -8,6 +8,7 @@ from __future__ import print_function
 from __future__ import unicode_literals
 
 import functools
+import math
 
 import tensorflow as tf
 
@@ -97,6 +98,40 @@ class ModelAE(Model):
 
     def get_encoded(self, x, **kwargs):
         return self.fprop(x, **kwargs)[self.O_ENCODED]
+
+
+class ModelAllConvolutional(Model):
+    def __init__(self, scope, nb_classes, nb_filters, input_shape, **kwargs):
+        del kwargs
+        Model.__init__(self, scope, nb_classes, locals())
+        self.nb_filters = nb_filters
+        self.input_shape = input_shape
+
+        # Do a dummy run of fprop to create the variables from the start
+        self.fprop(tf.placeholder(tf.float32, [32] + input_shape))
+        # Put a reference to the params in self so that the params get pickled
+        self.params = self.get_params()
+
+    def fprop(self, x, **kwargs):
+        del kwargs
+        conv_args = dict(
+            activation=tf.nn.leaky_relu,
+            kernel_initializer=HeReLuNormalInitializer,
+            kernel_size=3,
+            padding='same')
+        y = x
+
+        with tf.variable_scope(self.scope, reuse=tf.AUTO_REUSE):
+            log_resolution = int(round(
+                math.log(self.input_shape[0]) / math.log(2)))
+            for scale in range(log_resolution - 2):
+                y = tf.layers.conv2d(y, self.nb_filters << scale, **conv_args)
+                y = tf.layers.conv2d(y, self.nb_filters << (scale + 1), **conv_args)
+                y = tf.layers.average_pooling2d(y, 2, 2)
+            y = tf.layers.conv2d(y, self.nb_classes, **conv_args)
+            logits = tf.reduce_mean(y, [1, 2])
+            return {self.O_LOGITS: logits,
+                    self.O_PROBS: tf.nn.softmax(logits=logits)}
 
 
 class HeReLuNormalInitializer(tf.initializers.random_normal):

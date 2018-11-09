@@ -24,8 +24,10 @@ from cleverhans_tutorials.tutorial_models import ModelBasicCNN, ModelAE, ModelAl
 
 FLAGS = flags.FLAGS
 
+SOLVER = 'adam'
+DATASET = 'MNIST'
 BATCH_SIZE = 128
-NB_EPOCHS = 6
+NB_EPOCHS = 6 if DATASET == 'MNIST' else 10
 NB_EPOCHS_AE = 100
 SOURCE_SAMPLES = 10
 LEARNING_RATE = .001
@@ -34,8 +36,6 @@ ATTACK_ITERATIONS = 3000  # 1000
 INIT_CONST = 0.01
 BINARY_SEARCH_STEPS = 9
 TARGETED = True
-SOLVER = 'adam'
-DATASET = 'MNIST'
 MODEL_PATH = os.path.join(os.path.join('models', DATASET.lower()), DATASET.lower())
 
 

@@ -1146,12 +1146,11 @@ class Zoo:
 
         m[indice] = old_val
 
-    def blackbox_optimizer(self, var_idx, adv_summary, pert_summary, loss1_summary, loss2_summary, loss_summary):
+    def blackbox_optimizer(self, iteration, adv_summary, pert_summary, loss1_summary, loss2_summary, loss_summary):
         # build new inputs, based on current variable value
         var = np.repeat(self.real_modifier, self.batch_size * 2 + 1, axis=0)
         var_size = self.real_modifier.size
-        var_indice = np.random.choice(self.var_list.size, self.batch_size,
-                                      replace=False) if var_idx is None else var_idx
+        var_indice = np.random.choice(self.var_list.size, self.batch_size, replace=False)
         indice = self.var_list[var_indice]
 
         for i in range(self.batch_size):
@@ -1167,7 +1166,7 @@ class Zoo:
                     self.modifier_up, self.modifier_down, self.LEARNING_RATE, self.adam_epoch, self.beta1, self.beta2)
 
         return losses[0], l2s[0], loss1[0], loss2[0], scores[0], nimgs[
-            0], var_indice, summary_adv, summary_pert, summary_loss1, summary_loss2, summary_loss
+            0], summary_adv, summary_pert, summary_loss1, summary_loss2, summary_loss
 
     def attack(self, imgs, targets):
         """
@@ -1257,8 +1256,6 @@ class Zoo:
             self.vt.fill(0.0)
             self.adam_epoch.fill(1)
 
-            var_idx = None
-
             for iteration in range(self.MAX_ITERATIONS):
                 global_step += 1
 
@@ -1274,8 +1271,8 @@ class Zoo:
 
                 attack_begin_time = time.time()
                 # perform the attack
-                l, l2, loss1, loss2, score, nimg, var_idx, summary_adv, summary_pert, summary_loss1, summary_loss2, summary_loss = self.blackbox_optimizer(
-                    var_idx, adv_summary, pert_summary, loss1_summary, loss2_summary, loss_summary)
+                l, l2, loss1, loss2, score, nimg, summary_adv, summary_pert, summary_loss1, summary_loss2, summary_loss = self.blackbox_optimizer(
+                    iteration, adv_summary, pert_summary, loss1_summary, loss2_summary, loss_summary)
 
                 if global_step == 1:
                     # log nearly original image
@@ -1306,7 +1303,6 @@ class Zoo:
                     bestl2 = l2
                     bestscore = np.argmax(score)
 
-
                 if l2 < o_bestl2:
                     self.attack_writer.add_summary(summary_loss1, global_step)
                     self.attack_writer.add_summary(summary_loss2, global_step)
@@ -1324,9 +1320,6 @@ class Zoo:
 
                     o_bestl2 = l2
                     o_bestattack = nimg
-
-                if l2 >= bestl2:
-                    var_idx = None
 
                 train_timer += time.time() - attack_begin_time
 

@@ -1174,7 +1174,7 @@ class Zoo:
                         adam_epoch, beta1, beta2):
         for i in range(batch_size):
             grad[i] = (losses[i * 2 + 1] - losses[i * 2 + 2]) / 0.0002
-        rho = 0.95 # or 0.99
+        rho = beta2 # or 0.95/0.99
         # vt: E[grad^2]
         vt = vt_arr[indice]
         vt = rho * vt + (1 - rho) * (grad * grad)

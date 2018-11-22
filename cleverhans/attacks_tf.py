@@ -1107,15 +1107,23 @@ class Zoo:
         # set solver
         solver = solver.lower()
         self.solver_name = solver.lower()
-        self.solver = self.coordinate_ADAM if self.solver_name == 'adam' else self.coordinate_Newton
+
+        if self.solver_name == 'adam':
+            self.solver = self.coordinate_ADAM
+        elif self.solver_name == 'rmsprop':
+            self.solver = self.coordinate_RMSProp
+        elif self.solver_name == 'adadelta':
+            self.solver = self.coordinate_ADADelta
+        else:
+            self.solver = self.coordinate_Newton
+
         _logger.info("Using solver: %s", solver)
 
         self.merged = tf.summary.merge_all()
         self.attack_writer = tf.summary.FileWriter('./attack_log_' + scope, self.sess.graph)
 
     def coordinate_ADAM(self, losses, indice, grad, hess, batch_size, mt_arr, vt_arr, real_modifier, up, down, lr,
-                        adam_epoch,
-                        beta1, beta2):
+                        adam_epoch, beta1, beta2):
         for i in range(batch_size):
             grad[i] = (losses[i * 2 + 1] - losses[i * 2 + 2]) / 0.0002
 
@@ -1153,6 +1161,44 @@ class Zoo:
         old_val = m[indice]
         old_val -= lr * grad / hess
         # set it back to [0, 1] region
+        old_val = np.maximum(np.minimum(old_val, up[indice]), down[indice])
+
+        m[indice] = old_val
+
+    def coordinate_RMSProp(self, losses, indice, grad, hess, batch_size, mt_arr, vt_arr, real_modifier, up, down, lr,
+                           adam_epoch, beta1, beta2):
+        for i in range(batch_size):
+            grad[i] = (losses[i * 2 + 1] - losses[i * 2 + 2]) / 0.0002
+
+        vt = vt_arr[indice]
+        vt = beta1 * vt + (1 - beta1) * (grad * grad)
+
+        m = real_modifier.reshape(-1)
+        old_val = m[indice]
+        old_val -= lr * grad / np.sqrt(vt + 1e-8)
+
+        old_val = np.maximum(np.minimum(old_val, up[indice]), down[indice])
+
+        m[indice] = old_val
+
+    def coordinate_ADADelta(self, losses, indice, grad, hess, batch_size, mt_arr, vt_arr, real_modifier, up, down, lr,
+                        adam_epoch, beta1, beta2):
+        for i in range(batch_size):
+            grad[i] = (losses[i * 2 + 1] - losses[i * 2 + 2]) / 0.0002
+        rho = beta2 # or 0.95/0.99
+        # vt: E[grad^2]
+        vt = vt_arr[indice]
+        vt = rho * vt + (1 - rho) * (grad * grad)
+        vt_arr[indice] = vt
+        # mt: E[(delta_x)^2]
+        mt = mt_arr[indice]
+        delta_x = -np.sqrt(mt + 1e-8) / np.sqrt(vt + 1e-8) * grad
+        mt_arr[indice] = rho * mt + (1-rho) * delta_x * delta_x
+        # update
+        m = real_modifier.reshape(-1)
+        old_val = m[indice]
+        old_val += delta_x
+
         old_val = np.maximum(np.minimum(old_val, up[indice]), down[indice])
 
         m[indice] = old_val

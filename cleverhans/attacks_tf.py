@@ -802,6 +802,7 @@ class CarliniWagnerL2(object):
 
         # these are the variables to initialize when we run
         self.setup = []
+        self.setup.append(self.oimg.assign(self.assign_oimg))
         self.setup.append(self.timg.assign(self.assign_timg))
         self.setup.append(self.tlab.assign(self.assign_tlab))
         self.setup.append(self.const.assign(self.assign_const))
@@ -899,9 +900,9 @@ class CarliniWagnerL2(object):
             for iteration in range(self.MAX_ITERATIONS):
 
                 # perform the attack
-                _, l, l2s, scores, nimg, merged, _ = self.sess.run([
+                _, l, l2s, scores, nimg, merged = self.sess.run([
                     self.train, self.loss, self.l2dist, self.output,
-                    self.newimg, self.merged, self.oimg
+                    self.newimg, self.merged
                 ])
 
                 if iteration % ((self.MAX_ITERATIONS // 10) or 1) == 0:

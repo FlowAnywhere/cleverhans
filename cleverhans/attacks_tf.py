@@ -765,7 +765,7 @@ class CarliniWagnerL2(object):
         self.newimg = self.newimg * (clip_max - clip_min) + clip_min
 
         self.adv_summary = tf.summary.image('adv', tensor=self.newimg, max_outputs=batch_size)
-        self.pert_summary = tf.summary.image('perturbation', tensor=modifier, max_outputs=batch_size)
+        self.pert_summary = tf.summary.image('perturbation', tensor=self.newimg - self.oimg, max_outputs=batch_size)
 
         # prediction BEFORE-SOFTMAX of the model
         self.output = model.get_logits(self.newimg)
@@ -890,7 +890,7 @@ class CarliniWagnerL2(object):
             # set the variables so that we don't have to send them over again
             self.sess.run(
                 self.setup, {
-                    self.assign_oimg: imgs,
+                    self.assign_oimg: oimgs,
                     self.assign_timg: batch,
                     self.assign_tlab: batchlab,
                     self.assign_const: CONST

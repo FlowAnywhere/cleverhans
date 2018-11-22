@@ -899,9 +899,9 @@ class CarliniWagnerL2(object):
             for iteration in range(self.MAX_ITERATIONS):
 
                 # perform the attack
-                _, l, l2s, scores, nimg, merged = self.sess.run([
+                _, l, l2s, scores, nimg, merged, _ = self.sess.run([
                     self.train, self.loss, self.l2dist, self.output,
-                    self.newimg, self.merged
+                    self.newimg, self.merged, self.oimg
                 ])
 
                 if iteration % ((self.MAX_ITERATIONS // 10) or 1) == 0:

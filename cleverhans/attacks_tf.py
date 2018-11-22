@@ -4,11 +4,11 @@ from __future__ import print_function
 from __future__ import unicode_literals
 
 import copy
-import time
 import warnings
 
 import numpy as np
 import tensorflow as tf
+import time
 from six.moves import xrange
 
 from cleverhans.compat import reduce_any
@@ -678,7 +678,7 @@ def jacobian_augmentation(sess,
 
 
 class CarliniWagnerL2(object):
-    def __init__(self, sess, model, batch_size, confidence, targeted,
+    def __init__(self, scope, sess, model, batch_size, confidence, targeted,
                  learning_rate, binary_search_steps, max_iterations,
                  abort_early, initial_const, clip_min, clip_max, num_labels,
                  shape):
@@ -762,6 +762,9 @@ class CarliniWagnerL2(object):
         self.newimg = (tf.tanh(modifier + self.timg) + 1) / 2
         self.newimg = self.newimg * (clip_max - clip_min) + clip_min
 
+        self.adv_summary = tf.summary.image('adv', tensor=self.newimg, max_outputs=batch_size)
+        self.pert_summary = tf.summary.image('perturbation', tensor=modifier, max_outputs=batch_size)
+
         # prediction BEFORE-SOFTMAX of the model
         self.output = model.get_logits(self.newimg)
 
@@ -803,6 +806,10 @@ class CarliniWagnerL2(object):
 
         self.init = tf.variables_initializer(var_list=[modifier] + new_vars)
 
+        self.merged = tf.summary.merge_all()
+        self.attack_writer = tf.summary.FileWriter('./attack_log_' + scope, self.sess.graph)
+        self.num_labels = num_labels
+
     def attack(self, imgs, targets):
         """
         Perform the L_2 attack on the given instance for the given targets.
@@ -818,10 +825,11 @@ class CarliniWagnerL2(object):
                     i, len(imgs)))
             r.extend(
                 self.attack_batch(imgs[i:i + self.batch_size],
-                                  targets[i:i + self.batch_size]))
+                                  targets[i:i + self.batch_size],
+                                  np.floor(np.arange(i, i + self.batch_size) / self.num_labels)))
         return np.array(r)
 
-    def attack_batch(self, imgs, labs):
+    def attack_batch(self, imgs, labs, original_labs):
         """
         Run the attack on a batch of instance and labels.
         """
@@ -886,10 +894,11 @@ class CarliniWagnerL2(object):
 
             prev = 1e6
             for iteration in range(self.MAX_ITERATIONS):
+
                 # perform the attack
-                _, l, l2s, scores, nimg = self.sess.run([
+                _, l, l2s, scores, nimg, merged = self.sess.run([
                     self.train, self.loss, self.l2dist, self.output,
-                    self.newimg
+                    self.newimg, self.merged
                 ])
 
                 if iteration % ((self.MAX_ITERATIONS // 10) or 1) == 0:
@@ -940,6 +949,8 @@ class CarliniWagnerL2(object):
             o_bestl2 = np.array(o_bestl2)
             mean = np.mean(np.sqrt(o_bestl2[o_bestl2 < 1e9]))
             _logger.debug("   Mean successful distortion: {:.4g}".format(mean))
+
+        self.attack_writer.add_summary(merged)
 
         # return the best solution found
         o_bestl2 = np.array(o_bestl2)

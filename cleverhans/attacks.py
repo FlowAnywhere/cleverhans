@@ -969,7 +969,7 @@ class CarliniWagnerL2(Attack):
     as this attack is often much slower than others.
     """
 
-    def __init__(self, model, sess=None, dtypestr='float32', **kwargs):
+    def __init__(self, scope, model, sess=None, dtypestr='float32', **kwargs):
         """
         Note: the model parameter should be an instance of the
         cleverhans.model.Model abstraction provided by CleverHans.
@@ -978,6 +978,8 @@ class CarliniWagnerL2(Attack):
             model = CallableModelWrapper(model, 'logits')
 
         super(CarliniWagnerL2, self).__init__(model, sess, dtypestr, **kwargs)
+
+        self.scope = scope
 
         self.feedable_kwargs = {'y': self.tf_dtype, 'y_target': self.tf_dtype}
 
@@ -1031,7 +1033,7 @@ class CarliniWagnerL2(Attack):
 
         labels, nb_classes = self.get_or_guess_labels(x, kwargs)
 
-        attack = CWL2(self.sess, self.model, self.batch_size, self.confidence,
+        attack = CWL2(self.scope, self.sess, self.model, self.batch_size, self.confidence,
                       'y_target' in kwargs, self.learning_rate,
                       self.binary_search_steps, self.max_iterations,
                       self.abort_early, self.initial_const, self.clip_min,

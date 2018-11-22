@@ -8,14 +8,14 @@ from __future__ import unicode_literals
 
 import logging
 import os
-import time
 
 import numpy as np
 import tensorflow as tf
+import time
 from tensorflow.python.platform import flags
 
 from cleverhans import dataset
-from cleverhans.attacks import Zoo
+from cleverhans.attacks import Zoo, CarliniWagnerL2
 from cleverhans.loss import CrossEntropy
 from cleverhans.utils import AccuracyReport
 from cleverhans.utils import set_log_level
@@ -37,6 +37,8 @@ INIT_CONST = 0.01
 BINARY_SEARCH_STEPS = 9
 TARGETED = True
 MODEL_PATH = os.path.join(os.path.join('models', DATASET.lower()), DATASET.lower())
+
+ATTACKER = 'CW'
 
 
 def zoo(nb_epochs=NB_EPOCHS, batch_size=BATCH_SIZE,
@@ -168,7 +170,8 @@ def zoo(nb_epochs=NB_EPOCHS, batch_size=BATCH_SIZE,
     print("This could take some time ...")
 
     # Instantiate a Zoo attack object
-    zoo = Zoo(DATASET + '_' + SOLVER, model, modelAE, sess=sess)
+    zoo = Zoo(DATASET + '_' + SOLVER, model, modelAE, sess=sess) if ATTACKER == 'ZOO' else CarliniWagnerL2(
+        DATASET + '_' + ATTACKER, model, sess=sess)
 
     assert source_samples == nb_classes
     idxs = [np.where(np.argmax(y_test, axis=1) == i)[0][0] for i in range(nb_classes)]

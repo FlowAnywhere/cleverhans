@@ -7,7 +7,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import tensorflow as tf
 
-event_file = 'attack_log_CIFAR10_adam/events.out.tfevents.1541823174.j2xpnero'
+event_file = 'attack_log_CIFAR10_rmsprop/events.out.tfevents.1542502608.j2xpnero'
 original_class, target_class, image_w, image_h, image_c = 10, 10, 32, 32, 3
 
 image_tensors = np.zeros([original_class, target_class], dtype=np.object)

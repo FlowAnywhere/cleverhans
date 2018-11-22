@@ -744,7 +744,6 @@ class CarliniWagnerL2(object):
         modifier = tf.Variable(np.zeros(shape, dtype=np_dtype))
 
         # these are variables to be more efficient in sending data to tf
-        self.oimg = tf.Variable(np.zeros(shape), dtype=tf_dtype, name='oimg')
         self.timg = tf.Variable(np.zeros(shape), dtype=tf_dtype, name='timg')
         self.tlab = tf.Variable(
             np.zeros((batch_size, num_labels)), dtype=tf_dtype, name='tlab')
@@ -752,7 +751,6 @@ class CarliniWagnerL2(object):
             np.zeros(batch_size), dtype=tf_dtype, name='const')
 
         # and here's what we use to assign them
-        self.assign_oimg = tf.placeholder(tf_dtype, shape, name='assign_oimg')
         self.assign_timg = tf.placeholder(tf_dtype, shape, name='assign_timg')
         self.assign_tlab = tf.placeholder(
             tf_dtype, (batch_size, num_labels), name='assign_tlab')
@@ -765,7 +763,7 @@ class CarliniWagnerL2(object):
         self.newimg = self.newimg * (clip_max - clip_min) + clip_min
 
         self.adv_summary = tf.summary.image('adv', tensor=self.newimg, max_outputs=batch_size)
-        self.pert_summary = tf.summary.image('perturbation', tensor=self.newimg - self.oimg, max_outputs=batch_size)
+        self.pert_summary = tf.summary.image('perturbation', tensor=modifier, max_outputs=batch_size)
 
         # prediction BEFORE-SOFTMAX of the model
         self.output = model.get_logits(self.newimg)
@@ -802,7 +800,6 @@ class CarliniWagnerL2(object):
 
         # these are the variables to initialize when we run
         self.setup = []
-        self.setup.append(self.oimg.assign(self.assign_oimg))
         self.setup.append(self.timg.assign(self.assign_timg))
         self.setup.append(self.tlab.assign(self.assign_tlab))
         self.setup.append(self.const.assign(self.assign_const))
@@ -890,7 +887,6 @@ class CarliniWagnerL2(object):
             # set the variables so that we don't have to send them over again
             self.sess.run(
                 self.setup, {
-                    self.assign_oimg: oimgs,
                     self.assign_timg: batch,
                     self.assign_tlab: batchlab,
                     self.assign_const: CONST

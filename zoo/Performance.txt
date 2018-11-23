@@ -1,0 +1,105 @@
+MNIST
+Test accuracy on legitimate test examples: 0.993
+
+MNIST ADAM
+Avg. rate of successful adv. examples 1.0000
+Avg. L_2 norm of perturbations 1.8373
+Avg. attack time 44.5866
+
+MNIST NEWTON
+Avg. rate of successful adv. examples 1.0000
+Avg. L_2 norm of perturbations 1.8706
+Avg. attack time 72.9864
+
+MNIST RMSPROP
+Avg. rate of successful adv. examples 1.0000
+Avg. L_2 norm of perturbations 1.9446
+Avg. attack time 29.4462
+
+MNIST AdaDelta rho=0.999
+Avg. rate of successful adv. examples 1.0000
+Avg. L_2 norm of perturbations 1.8641
+Avg. attack time 76.6013
+
+CW:
+MNIST
+Avg. rate of successful adv. examples 1.0000
+Avg. L_2 norm of perturbations 1.5003
+Avg. attack time 3.3277
+
+
+
+===================================================
+CIFAR10
+Test accuracy on legitimate test examples: 0.853
+
+
+CIFAR10 ADAM
+Avg. rate of successful adv. examples 1.0000
+Avg. L_2 norm of perturbations 0.5844
+Avg. attack time 200.4477
+
+CIFAR10 NEWTON
+Avg. rate of successful adv. examples 1.0000
+Avg. L_2 norm of perturbations 0.5629
+Avg. attack time 441.2685
+
+CIFAR10 RMSPROP
+Avg. rate of successful adv. examples 1.0000
+Avg. L_2 norm of perturbations 0.8841
+Avg. attack time 70.8042
+
+CIFAR10 AdaDelta rho=0.999
+Avg. rate of successful adv. examples 1.0000
+Avg. L_2 norm of perturbations 0.5511
+Avg. attack time 230.9122
+
+CW:
+CIFAR10
+Avg. rate of successful adv. examples 1.0000
+Avg. L_2 norm of perturbations 0.3658
+Avg. attack time 3.1106
+
+
+
+
+=======================================================
+SVHN
+Test accuracy on legitimate test examples: 0.934
+
+
+SVHN ADAM
+Avg. rate of successful adv. examples 1.0000
+Avg. L_2 norm of perturbations 0.6212
+Avg. attack time 201.6877
+
+SVHN NEWTON
+Avg. rate of successful adv. examples 1.0000
+Avg. L_2 norm of perturbations 0.6135
+Avg. attack time 389.5072
+
+SVHN RMSProp
+Avg. rate of successful adv. examples 1.0000
+Avg. L_2 norm of perturbations 0.9450
+Avg. attack time 71.2395
+
+SVHN AdaDelta rho=0.999
+Avg. rate of successful adv. examples 1.0000
+Avg. L_2 norm of perturbations 0.6057
+Avg. attack time 238.6565
+
+CW:
+SVHN
+Avg. rate of successful adv. examples 1.0000
+Avg. L_2 norm of perturbations 0.3857
+Avg. attack time 2.9939
+
+
+
+
+
+
+
+
+
+
